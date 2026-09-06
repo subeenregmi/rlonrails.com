@@ -1,0 +1,9 @@
+services:
+  rlonrails:
+    build:
+      context: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./src:/rlonrails/src
+      - ./public:/rlonrails/public

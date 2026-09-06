@@ -1,0 +1,8 @@
+services:
+  rlonrails:
+    build:
+      context: .
+    ports:
+      - "8090:3000"
+    command: ["npm", "run", "start"]
+    restart: always
