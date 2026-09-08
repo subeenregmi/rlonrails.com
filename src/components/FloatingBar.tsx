@@ -45,7 +45,7 @@ export function FloatingBar(props: FloatingBarProps) {
   }, [open]);
 
   return (
-    <div ref={rootRef} className="floating-bar absolute top-[calc(1rem+env(safe-area-inset-top))] left-[calc(1rem+env(safe-area-inset-left))] z-20 max-w-[calc(100%-2rem)]">
+    <div ref={rootRef} className="floating-bar absolute top-[calc(1rem+var(--safe-top))] left-[calc(1rem+var(--safe-left))] z-20 max-w-[calc(100%-2rem-var(--safe-left)-var(--safe-right))]">
       <div className="flex h-[60px] w-fit items-center gap-2.5 rounded-full bg-tfl-blue pr-2.5 pl-2 text-white shadow-[0_10px_30px_rgba(0,25,168,.28),inset_0_-3px_0_#E32017] sm:gap-3.5">
         <Roundel className="h-11 w-11 flex-none drop-shadow-[0_2px_3px_rgba(0,0,0,.3)]" />
         <h1 className="hidden whitespace-nowrap text-[19px] lowercase leading-none tracking-[0.07em] sm:block">rl on rails</h1>
@@ -75,7 +75,7 @@ export function FloatingBar(props: FloatingBarProps) {
       </div>
 
       {open && (
-        <div className="panel-enter mt-2 grid max-h-[calc(100dvh-12.5rem)] w-[560px] max-w-[calc(100vw-2rem)] grid-cols-1 gap-4 overflow-y-auto overscroll-contain rounded-2xl border border-rule bg-surface p-4 text-ink shadow-[0_18px_50px_rgba(0,0,0,.18)] sm:grid-cols-[1fr_200px]">
+        <div className="panel-enter mt-2 grid max-h-[calc(100dvh-12.5rem-var(--safe-top)-var(--safe-bottom))] w-[560px] max-w-[calc(100vw-2rem-var(--safe-left)-var(--safe-right))] grid-cols-1 gap-4 overflow-y-auto overscroll-contain rounded-2xl border border-rule bg-surface p-4 text-ink shadow-[0_18px_50px_rgba(0,0,0,.18)] sm:grid-cols-[1fr_200px]">
           <section className="max-h-[40dvh] overflow-y-auto pr-1 sm:max-h-[60vh]">
             <h2 className="mb-2 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Lines</h2>
             <ul className="flex flex-col gap-0.5">

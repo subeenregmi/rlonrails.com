@@ -67,18 +67,18 @@ export function StationPanel(props: StationPanelProps) {
 
   return (
     <aside
-      className={cx("absolute inset-y-0 right-0 z-30 overflow-x-hidden overflow-y-auto overscroll-contain border-l border-rule bg-surface transition-[width] duration-[380ms] ease-[cubic-bezier(.2,.8,.2,1)]", open ? "w-full sm:w-[380px]" : "w-0")}
+      className={cx("absolute inset-y-0 right-0 z-30 overflow-x-hidden overflow-y-auto overscroll-contain border-l border-rule bg-surface transition-[width] duration-[380ms] ease-[cubic-bezier(.2,.8,.2,1)]", open ? "w-full pr-safe-right sm:w-[calc(380px+var(--safe-right))]" : "w-0")}
       style={{ "--c": colour, "--on": on } as React.CSSProperties}
       aria-hidden={!open}
     >
       {line && (
-        <div key={station?.id ?? line.id} className="panel-enter w-full pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:w-[380px]">
-          <header className="relative px-5 pt-4 pb-4" style={{ background: colour, color: on }}>
+        <div key={station?.id ?? line.id} className="panel-enter w-full pb-[calc(1.5rem+var(--safe-bottom))] sm:w-[380px]">
+          <header className="relative px-5 pt-[calc(1rem+var(--safe-top))] pb-4" style={{ background: colour, color: on }}>
             <button
               type="button"
               onClick={onClose}
               title="Close (Esc)"
-              className="absolute top-2 right-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/15 hover:bg-black/30"
+              className="absolute top-[calc(0.5rem+var(--safe-top))] right-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/15 hover:bg-black/30"
               style={{ color: on }}
             >
               <XMarkIcon className="h-5 w-5" />

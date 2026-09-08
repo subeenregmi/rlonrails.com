@@ -5,7 +5,7 @@ import { Roundel } from "@/components/Roundel";
 export default function NotFound() {
   return (
     <main className="flex min-h-full flex-col overflow-y-auto bg-paper text-ink">
-      <div className="mx-auto flex w-[880px] max-w-full flex-1 flex-col gap-5 px-4 py-5 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-8">
+      <div className="mx-auto flex w-[880px] max-w-full flex-1 flex-col gap-5 pt-[calc(1.25rem+var(--safe-top))] pr-[calc(1rem+var(--safe-right))] pb-[calc(2rem+var(--safe-bottom))] pl-[calc(1rem+var(--safe-left))] sm:pt-[calc(2rem+var(--safe-top))] sm:pr-[calc(1.5rem+var(--safe-right))] sm:pl-[calc(1.5rem+var(--safe-left))]">
         <Link href="/" className="flex items-center gap-3 self-start text-[15px] uppercase tracking-[0.07em]">
           <Roundel className="h-9 w-9" />
           RL on Rails
