@@ -29,7 +29,7 @@ export function Toast({ toast }: { toast: ToastMessage | null }) {
     <div
       key={shown.toast.key}
       className={cx(
-        "fixed bottom-[calc(100px+env(safe-area-inset-bottom))] left-1/2 z-20 w-max max-w-[calc(100vw-2rem)] rounded-2xl border-[3px] border-white/85 px-5.5 py-3.5 text-[15px] shadow-[0_14px_40px_rgba(0,0,0,.25),0_0_0_1px_rgba(0,0,0,.08)]",
+        "fixed bottom-[calc(100px+var(--safe-bottom))] left-1/2 z-20 w-max max-w-[calc(100vw-2rem-var(--safe-left)-var(--safe-right))] rounded-2xl border-[3px] border-white/85 px-5.5 py-3.5 text-[15px] shadow-[0_14px_40px_rgba(0,0,0,.25),0_0_0_1px_rgba(0,0,0,.08)]",
         shown.leaving ? "toast-exit" : "toast-enter",
       )}
       style={{ background: colour, color: textOn(line.tfl) }}

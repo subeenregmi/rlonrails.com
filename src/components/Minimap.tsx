@@ -49,7 +49,7 @@ export function Minimap({ layout, surface, colours, activeLines, subscribe, onJu
   };
 
   return (
-    <div className="mm-frame absolute right-3.5 bottom-3.5 h-16 w-[150px] cursor-crosshair overflow-hidden rounded-lg border border-rule shadow-[0_4px_16px_rgba(0,0,0,.12)] sm:h-24 sm:w-[230px]">
+    <div className="mm-frame absolute right-[calc(0.875rem+var(--safe-right))] bottom-3.5 h-16 w-[150px] cursor-crosshair overflow-hidden rounded-lg border border-rule shadow-[0_4px_16px_rgba(0,0,0,.12)] sm:h-24 sm:w-[230px]">
       <svg
         ref={svgRef}
         className="block h-full w-full"

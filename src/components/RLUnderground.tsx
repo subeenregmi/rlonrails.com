@@ -304,7 +304,7 @@ export function RLUnderground() {
     return (
       <div className="grid h-full grid-rows-[1fr_auto]">
         <div className="map-wrap" />
-        <div className="h-[84px] border-t border-rule bg-surface" />
+        <div className="h-[calc(84px+var(--safe-bottom))] border-t border-rule bg-surface" />
       </div>
     );
   }

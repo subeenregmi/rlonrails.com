@@ -70,7 +70,7 @@ export function JourneyStrip({ lines, progressByLine, focusLineId, onHover, onPi
     <footer className="journey-strip flex min-w-0 flex-col border-t border-rule bg-surface">
       <div
         ref={rail}
-        className={cx("rail relative mx-3.5 mt-1.5 h-3 cursor-pointer touch-none select-none transition-opacity", !scroll.overflow && "pointer-events-none opacity-0")}
+        className={cx("rail relative mt-1.5 mr-[calc(0.875rem+var(--safe-right))] ml-[calc(0.875rem+var(--safe-left))] h-3 cursor-pointer touch-none select-none transition-opacity", !scroll.overflow && "pointer-events-none opacity-0")}
         onPointerDown={onRailPointerDown}
         onPointerMove={onRailPointerMove}
         onPointerUp={endDrag}
@@ -91,7 +91,7 @@ export function JourneyStrip({ lines, progressByLine, focusLineId, onHover, onPi
           <rect x="0" y="9" width="34" height="2" rx="1" fill="#0019A8" />
         </svg>
       </div>
-      <div ref={scroller} onScroll={measure} onMouseLeave={() => onHover(null)} className="strip-scroller flex w-full min-w-0 items-stretch gap-2 overflow-x-auto px-3.5 pt-1 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div ref={scroller} onScroll={measure} onMouseLeave={() => onHover(null)} className="strip-scroller flex w-full min-w-0 items-stretch gap-2 overflow-x-auto pt-1 pr-[calc(0.875rem+var(--safe-right))] pb-[max(1rem,calc(0.25rem+var(--safe-bottom)))] pl-[calc(0.875rem+var(--safe-left))]">
         {lines.map((line) => {
           const p = progressByLine[line.id];
           const colour = TFL_COLOURS[line.tfl];

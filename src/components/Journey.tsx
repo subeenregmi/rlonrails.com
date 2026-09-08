@@ -91,7 +91,7 @@ export function JourneyModal({ open, progress, onClose }: { open: boolean; progr
   if (!open) return null;
   return (
     <div
-      className="dialog-backdrop fixed inset-0 z-30 overflow-y-auto bg-ink/40 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:bg-ink/30 sm:p-6 sm:backdrop-blur-md"
+      className="dialog-backdrop fixed inset-0 z-30 overflow-y-auto bg-ink/40 pt-[calc(0.75rem+var(--safe-top))] pr-[calc(0.75rem+var(--safe-right))] pb-[calc(0.75rem+var(--safe-bottom))] pl-[calc(0.75rem+var(--safe-left))] sm:bg-ink/30 sm:pt-[calc(1.5rem+var(--safe-top))] sm:pr-[calc(1.5rem+var(--safe-right))] sm:pb-[calc(1.5rem+var(--safe-bottom))] sm:pl-[calc(1.5rem+var(--safe-left))] sm:backdrop-blur-md"
       onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
     >
       <div className="dialog-enter mx-auto w-[880px] max-w-full">
@@ -106,7 +106,7 @@ export function Journey() {
   if (!progress) return <main className="min-h-full bg-paper" />;
   return (
     <main className="min-h-full overflow-y-auto bg-paper text-ink">
-      <div className="mx-auto flex w-[880px] max-w-full flex-col gap-5 px-4 py-5 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-8">
+      <div className="mx-auto flex w-[880px] max-w-full flex-col gap-5 pt-[calc(1.25rem+var(--safe-top))] pr-[calc(1rem+var(--safe-right))] pb-[calc(2rem+var(--safe-bottom))] pl-[calc(1rem+var(--safe-left))] sm:pt-[calc(2rem+var(--safe-top))] sm:pr-[calc(1.5rem+var(--safe-right))] sm:pl-[calc(1.5rem+var(--safe-left))]">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 text-[15px] uppercase tracking-[0.07em]">
             <Roundel className="h-9 w-9" />

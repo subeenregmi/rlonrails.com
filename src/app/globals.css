@@ -1,6 +1,15 @@
 @import "tailwindcss";
 
 :root {
+  /* Display cutout insets. Zero everywhere except iOS/Android devices with a
+     notch, Dynamic Island or home indicator, and only when the viewport is
+     declared `viewport-fit=cover` (see the `viewport` export in layout.tsx) —
+     without that every env() below resolves to 0px. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
   --paper: #f7f7f3;
   --surface: #ffffff;
   --tint: #f1f1ec;
@@ -44,6 +53,10 @@
   --color-ink-faint: var(--ink-faint);
   --color-rule: var(--rule);
   --color-locked: var(--locked);
+  --spacing-safe-top: var(--safe-top);
+  --spacing-safe-right: var(--safe-right);
+  --spacing-safe-bottom: var(--safe-bottom);
+  --spacing-safe-left: var(--safe-left);
 }
 
 html,
@@ -58,6 +71,23 @@ body {
   color: var(--ink);
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+/* Installed on iOS the status bar is `black-translucent`, which floats white
+   glyphs straight over the page — invisible against the pale map. Paint the
+   top inset in roundel blue so the clock, signal and battery sit on a proper
+   TfL band either side of the Dynamic Island instead of vanishing. Collapses
+   to zero height on every device without a top cutout. It sits above every
+   overlay so the glyphs stay white-on-blue even when a pale line colour or a
+   modal is underneath; panels below it pad themselves by --safe-top. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: var(--safe-top);
+  background: #0019a8;
+  z-index: 60;
+  pointer-events: none;
 }
 
 .map-wrap {
@@ -532,7 +562,7 @@ body {
 }
 @media (min-width: 640px) {
   .panel-open .mm-frame {
-    right: calc(380px + 0.875rem);
+    right: calc(380px + 0.875rem + var(--safe-right));
   }
 }
 .mm-island {

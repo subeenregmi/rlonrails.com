@@ -26,7 +26,7 @@ export function Dialog({ dialog, onClose }: { dialog: DialogMessage | null; onCl
   const confirm = () => { dialog.onConfirm?.(); onClose(); };
 
   return (
-    <div className="dialog-backdrop fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-6" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="dialog-backdrop fixed inset-0 z-30 flex items-center justify-center bg-ink/40 pt-[calc(1.5rem+var(--safe-top))] pr-[calc(1.5rem+var(--safe-right))] pb-[calc(1.5rem+var(--safe-bottom))] pl-[calc(1.5rem+var(--safe-left))]" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div role="dialog" aria-modal="true" aria-labelledby="dialog-title" className="dialog-enter w-[400px] max-w-full overflow-hidden rounded-2xl bg-surface text-ink shadow-[0_24px_70px_rgba(0,0,0,.32)]">
         <header className="bg-tfl-blue px-5 pt-4 pb-4 text-white shadow-[inset_0_-3px_0_#E32017]">
           <div className="text-[11px] uppercase tracking-[0.1em] opacity-80">RL on Rails</div>
