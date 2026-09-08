@@ -610,7 +610,7 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     const limitY = c.h * pad * EDGE_FRACTION;
     const nearEdge = c.x - p.x > limitX || p.x + p.w - (c.x + c.w) > limitX || c.y - p.y > limitY || p.y + p.h - (c.y + c.h) > limitY;
     const zoomDrift = k > ZOOM_DRIFT || k < 1 / ZOOM_DRIFT;
-    if (!flightRef.current && (nearEdge || zoomDrift) && performance.now() - lastCommit.current > EAGER_COMMIT_MS) commit();
+    if ((nearEdge || zoomDrift) && performance.now() - lastCommit.current > EAGER_COMMIT_MS) commit();
     if (commitSoon) {
       if (commitTimer.current) clearTimeout(commitTimer.current);
       commitTimer.current = setTimeout(settle, COMMIT_DELAY);
