@@ -45,6 +45,12 @@ const worldOf = (polygon: Pt[]): Bounds => {
 };
 const COMMIT_DELAY = 160;
 const EAGER_COMMIT_MS = 60;
+const FLICK_WINDOW = 100;
+const FLICK_STALE = 60;
+const FLICK_MIN_SPEED = 0.08;
+const GLIDE_FRICTION = 0.93;
+const GLIDE_MIN_SPEED = 0.02;
+const GLIDE_MAX_SPEED = 6;
 const EDGE_FRACTION = 0.65;
 const ZOOM_DRIFT = 1.5;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -55,6 +61,17 @@ const clampView = (v: View, world: Bounds) => {
   v.y = v.h >= world.h ? (world.y + maxY - v.h) / 2 : clamp(v.y, world.y, maxY - v.h);
 };
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+interface Sample { x: number; y: number; t: number }
+const flickVelocity = (trail: Sample[], now: number) => {
+  const last = trail[trail.length - 1];
+  const first = trail[0];
+  if (!last || now - last.t > FLICK_STALE) return null;
+  const dt = last.t - first.t;
+  if (dt < 8) return null;
+  const vx = clamp((last.x - first.x) / dt, -GLIDE_MAX_SPEED, GLIDE_MAX_SPEED);
+  const vy = clamp((last.y - first.y) / dt, -GLIDE_MAX_SPEED, GLIDE_MAX_SPEED);
+  return Math.hypot(vx, vy) < FLICK_MIN_SPEED ? null : { vx, vy };
+};
 const fmt = (p: Pt) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
 const segmentPath = (l: LineLayout, a: number, b: number) => {
   const steps = Math.max(2, Math.ceil((b - a) / 6));
@@ -530,7 +547,8 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   const lastCommit = useRef(0);
   const flightRef = useRef<number | null>(null);
   const listeners = useRef(new Set<CameraListener>());
-  const dragRef = useRef<{ x: number; y: number; vx: number; vy: number; moved: boolean; target: Element | null } | null>(null);
+  const dragRef = useRef<{ x: number; y: number; ox: number; oy: number; moved: boolean; target: Element | null; trail: Sample[] } | null>(null);
+  const glideRef = useRef<number | null>(null);
   const pointersRef = useRef(new Map<number, Pt>());
   const pinchRef = useRef<{ dist: number; mid: Pt } | null>(null);
   const rectRef = useRef<DOMRect | null>(null);
@@ -599,6 +617,38 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     }
   }, [commit, settle, wrapRect]);
 
+  const stopGlide = useCallback(() => {
+    if (!glideRef.current) return false;
+    cancelAnimationFrame(glideRef.current);
+    glideRef.current = null;
+    return true;
+  }, []);
+
+  const glide = useCallback((vx: number, vy: number) => {
+    let last = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min(64, now - last);
+      last = now;
+      const decay = Math.pow(GLIDE_FRICTION, dt / 16.6667);
+      vx *= decay;
+      vy *= decay;
+      const v = pending.current;
+      const unitsPerPixel = v.w / wrapRect().width;
+      const stepX = vx * dt * unitsPerPixel;
+      const stepY = vy * dt * unitsPerPixel;
+      const fromX = v.x;
+      const fromY = v.y;
+      v.x -= stepX;
+      v.y -= stepY;
+      render(false);
+      if (Math.abs(v.x - fromX) < Math.abs(stepX) / 2) vx = 0;
+      if (Math.abs(v.y - fromY) < Math.abs(stepY) / 2) vy = 0;
+      if (Math.hypot(vx, vy) < GLIDE_MIN_SPEED) { glideRef.current = null; settle(); return; }
+      glideRef.current = requestAnimationFrame(step);
+    };
+    glideRef.current = requestAnimationFrame(step);
+  }, [render, settle, wrapRect]);
+
   const setViewCentered = useCallback((cx: number, cy: number, w: number, commitSoon = true) => {
     const v = pending.current;
     v.w = clampWidth(w);
@@ -609,6 +659,7 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   }, [render, aspect, clampWidth]);
 
   const flyTo = useCallback((cx: number, cy: number, w: number, duration = 850) => {
+    stopGlide();
     if (flightRef.current) cancelAnimationFrame(flightRef.current);
     const v = pending.current;
     const from = { cx: v.x + v.w / 2, cy: v.y + v.h / 2, w: v.w };
@@ -623,7 +674,7 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
       settle();
     };
     flightRef.current = requestAnimationFrame(step);
-  }, [setViewCentered, settle, clampWidth]);
+  }, [setViewCentered, settle, clampWidth, stopGlide]);
 
   const fitAll = useCallback((duration?: number) => {
     const b = worldRef.current;
@@ -696,16 +747,18 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     flyTo(START_VIEW.cx, START_VIEW.cy, Math.max(START_VIEW.w, START_VIEW.h * aspect()), Math.max(3000, schedule.total - 1200) + 1800);
     return () => {
       observer.disconnect();
+      stopGlide();
       window.removeEventListener("scroll", measureWrap);
       window.visualViewport?.removeEventListener("resize", measureWrap);
     };
-  }, [setViewCentered, settle, flyTo, aspect, measureWrap, schedule.total]);
+  }, [setViewCentered, settle, flyTo, aspect, measureWrap, schedule.total, stopGlide]);
 
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
+      stopGlide();
       if (flightRef.current) { cancelAnimationFrame(flightRef.current); flightRef.current = null; }
       setHover(null);
       if (event.ctrlKey || event.metaKey) {
@@ -720,7 +773,7 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     };
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
-  }, [zoomAt, render, wrapRect]);
+  }, [zoomAt, render, wrapRect, stopGlide]);
 
   const popStation = useCallback((station: Station, colour: string) => {
     const el = stationRefs.current.get(station.id);
@@ -922,7 +975,11 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   };
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0) return;
-    if (flightRef.current) { cancelAnimationFrame(flightRef.current); flightRef.current = null; commit(); }
+    // settle(), not commit(): a press that only stops the motion never reaches
+    // onPointerUp's settle path, and would leave .moving (and its paused
+    // ambient animations) stuck on the map.
+    if (stopGlide()) settle();
+    if (flightRef.current) { cancelAnimationFrame(flightRef.current); flightRef.current = null; settle(); }
     if (commitTimer.current) { clearTimeout(commitTimer.current); commitTimer.current = null; }
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -934,7 +991,7 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
       return;
     }
     if (pointersRef.current.size > 2) return;
-    dragRef.current = { x: e.clientX, y: e.clientY, vx: pending.current.x, vy: pending.current.y, moved: false, target: e.target as Element };
+    dragRef.current = { x: e.clientX, y: e.clientY, ox: pending.current.x, oy: pending.current.y, moved: false, target: e.target as Element, trail: [{ x: e.clientX, y: e.clientY, t: e.timeStamp }] };
   };
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const pointers = pointersRef.current;
@@ -957,9 +1014,11 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
       const dy = e.clientY - d.y;
       if (!d.moved && Math.hypot(dx, dy) < 4) return;
       if (!d.moved) { d.moved = true; setDragging(true); setHover(null); }
+      d.trail.push({ x: e.clientX, y: e.clientY, t: e.timeStamp });
+      while (d.trail.length > 2 && e.timeStamp - d.trail[0].t > FLICK_WINDOW) d.trail.shift();
       const unitsPerPixel = pending.current.w / wrapRect().width;
-      pending.current.x = d.vx - dx * unitsPerPixel;
-      pending.current.y = d.vy - dy * unitsPerPixel;
+      pending.current.x = d.ox - dx * unitsPerPixel;
+      pending.current.y = d.oy - dy * unitsPerPixel;
       render(false);
       return;
     }
@@ -983,7 +1042,12 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     dragRef.current = null;
     setDragging(false);
     if (!pressed) { settle(); return; }
-    if (pressed.moved) { settle(); return; }
+    if (pressed.moved) {
+      const flick = reducedMotion() ? null : flickVelocity(pressed.trail, e.timeStamp);
+      if (flick) glide(flick.vx, flick.vy);
+      else settle();
+      return;
+    }
     const target = pressed.target?.closest<SVGElement>("[data-id]");
     if (target) { onSelect(target.dataset.id!); return; }
     const pill = pressed.target?.closest<SVGElement>(".pill");
