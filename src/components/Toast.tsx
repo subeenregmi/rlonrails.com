@@ -1,28 +1,45 @@
 "use client";
 
+import { useState } from "react";
 import type { Line } from "@/lib/curriculum";
 import { TFL_COLOURS, textOn } from "@/lib/tfl";
+import { cx } from "@/lib/cx";
 
 export interface ToastMessage {
   key: number;
   line: Line;
 }
 
+interface Shown {
+  toast: ToastMessage;
+  leaving: boolean;
+}
+
+const SPARKS = 30;
+
 export function Toast({ toast }: { toast: ToastMessage | null }) {
-  if (!toast) return null;
-  const colour = TFL_COLOURS[toast.line.tfl];
+  const [shown, setShown] = useState<Shown | null>(toast ? { toast, leaving: false } : null);
+  if (toast && toast !== shown?.toast) setShown({ toast, leaving: false });
+  else if (!toast && shown && !shown.leaving) setShown({ toast: shown.toast, leaving: true });
+  if (!shown) return null;
+  const { line } = shown.toast;
+  const colour = TFL_COLOURS[line.tfl];
   const palette = [colour, "#FFD300", "#fff", "#E32017", "#0098D4"];
   return (
     <div
-      key={toast.key}
-      className="toast-enter fixed bottom-[calc(100px+env(safe-area-inset-bottom))] left-1/2 z-20 w-max max-w-[calc(100vw-2rem)] rounded-2xl px-5.5 py-3.5 text-[15px] shadow-[0_14px_40px_rgba(0,0,0,.25)]"
-      style={{ background: colour, color: textOn(toast.line.tfl) }}
+      key={shown.toast.key}
+      className={cx(
+        "fixed bottom-[calc(100px+env(safe-area-inset-bottom))] left-1/2 z-20 w-max max-w-[calc(100vw-2rem)] rounded-2xl border-[3px] border-white/85 px-5.5 py-3.5 text-[15px] shadow-[0_14px_40px_rgba(0,0,0,.25),0_0_0_1px_rgba(0,0,0,.08)]",
+        shown.leaving ? "toast-exit" : "toast-enter",
+      )}
+      style={{ background: colour, color: textOn(line.tfl) }}
+      onAnimationEnd={(event) => { if (shown.leaving && event.target === event.currentTarget) setShown(null); }}
     >
-      {toast.line.name} line complete
-      <small className="mt-0.5 block text-[12px] opacity-85">{toast.line.phase} · every station read and every lamp lit.</small>
-      {Array.from({ length: 26 }, (_, i) => {
-        const angle = (Math.PI * 2 * i) / 26 + ((i * 7919) % 40) / 100;
-        const radius = 90 + ((i * 104729) % 120);
+      {line.name} line complete
+      <small className="mt-0.5 block text-[12px] opacity-85">{line.phase} · Every station read and every lamp lit.</small>
+      {Array.from({ length: SPARKS }, (_, i) => {
+        const angle = (Math.PI * 2 * i) / SPARKS + ((i * 7919) % 40) / 100;
+        const radius = 130 + ((i * 104729) % 170);
         return (
           <span
             key={i}

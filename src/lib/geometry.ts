@@ -400,8 +400,9 @@ export function introSchedule(curriculum: Curriculum, layout: MapLayout): IntroS
 
 const ISLAND_CELL = 70;
 const ISLAND_REACH = 3;
-const LABEL_CHAR = 8.5;
-const PILL_CHAR = 8;
+const LABEL_CHAR = 10;
+const LABEL_HEIGHT = 17;
+const PILL_CHAR = 8.4;
 
 interface Grid {
   originX: number;
@@ -432,7 +433,7 @@ function markFootprint(layout: MapLayout, curriculum: Curriculum, grid: Grid) {
   for (const line of curriculum.lines) {
     for (const station of line.stations) {
       const { label } = layout.stations[station.id];
-      markText(label.x, label.y, label.anchor, station.name.length * LABEL_CHAR, 14);
+      markText(label.x, label.y, label.anchor, station.name.length * LABEL_CHAR, LABEL_HEIGHT);
     }
     const pill = layout.pills[line.id];
     markText(pill.x, pill.y, pill.anchor, `${line.phase} · ${line.short}`.length * PILL_CHAR, 16);

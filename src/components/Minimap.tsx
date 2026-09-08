@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { CURRICULUM, MAP_BOUNDS } from "@/lib/curriculum";
 import type { MapLayout, Surface } from "@/lib/geometry";
+import type { CameraListener } from "./TubeMap";
 
 const INSET = 340;
 
@@ -18,7 +19,7 @@ interface MinimapProps {
   surface: Surface;
   colours: Record<string, string>;
   activeLines: Set<string>;
-  subscribe: (listener: (view: View) => void) => () => void;
+  subscribe: (listener: CameraListener) => () => void;
   onJump: (x: number, y: number) => void;
 }
 

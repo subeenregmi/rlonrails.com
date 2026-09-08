@@ -48,7 +48,7 @@ export function FloatingBar(props: FloatingBarProps) {
     <div ref={rootRef} className="floating-bar absolute top-[calc(1rem+env(safe-area-inset-top))] left-[calc(1rem+env(safe-area-inset-left))] z-20 max-w-[calc(100%-2rem)]">
       <div className="flex h-[60px] w-fit items-center gap-2.5 rounded-full bg-tfl-blue pr-2.5 pl-2 text-white shadow-[0_10px_30px_rgba(0,25,168,.28),inset_0_-3px_0_#E32017] sm:gap-3.5">
         <Roundel className="h-11 w-11 flex-none drop-shadow-[0_2px_3px_rgba(0,0,0,.3)]" />
-        <h1 className="hidden whitespace-nowrap text-[19px] uppercase leading-none tracking-[0.07em] sm:block">RL on Rails</h1>
+        <h1 className="hidden whitespace-nowrap text-[19px] lowercase leading-none tracking-[0.07em] sm:block">rl on rails</h1>
         <span className="hidden h-6 w-px bg-white/25 sm:block" />
         <div className="flex flex-none items-center gap-2 text-[12.5px]" title={`${totals.read} of ${totals.total} stations read`}>
           <div className="hidden h-2 w-16 overflow-hidden rounded-full bg-white/20 min-[400px]:block sm:w-24">

@@ -272,6 +272,7 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
             selectedId={selectedId}
             focusLineId={focusLineId}
             trainCount={trainCount}
+            intro={intro}
             onSelect={(id) => select(id)}
             onPinLine={(id) => { setPinnedLineId(id); if (id) mapRef.current?.flyToLine(id); }}
           />

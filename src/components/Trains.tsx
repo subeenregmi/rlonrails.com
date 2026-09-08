@@ -5,12 +5,14 @@ import { CURRICULUM } from "@/lib/curriculum";
 import type { MapLayout } from "@/lib/geometry";
 import type { Interval } from "@/lib/progress";
 import type { View } from "./Minimap";
+import type { CameraListener } from "./TubeMap";
 
 interface TrainsProps {
   layout: MapLayout;
   intervals: Record<string, Interval[]>;
   count: number;
-  subscribe: (listener: (view: View) => void) => () => void;
+  focusLineId: string | null;
+  subscribe: (listener: CameraListener) => () => void;
 }
 
 type Phase = "cruise" | "approach" | "dwell" | "depart";
@@ -60,6 +62,7 @@ interface CarParts {
 interface TrainParts {
   visible: boolean;
   livery: string | null;
+  dim: string | null;
   cars: CarParts[];
 }
 
@@ -167,7 +170,7 @@ function partsOf(group: SVGGElement): TrainParts {
       tailLamp: lamps[1],
     };
   });
-  parts = { visible: false, livery: null, cars };
+  parts = { visible: false, livery: null, dim: null, cars };
   partsCache.set(group, parts);
   return parts;
 }
@@ -181,6 +184,13 @@ function showTrain(group: SVGGElement, parts: TrainParts, visible: boolean) {
   if (parts.visible === visible) return;
   parts.visible = visible;
   group.setAttribute("visibility", visible ? "visible" : "hidden");
+}
+
+function dimTrain(group: SVGGElement, parts: TrainParts, dim: string | null) {
+  if (parts.dim === dim) return;
+  parts.dim = dim;
+  if (dim === null) group.removeAttribute("data-dim");
+  else group.setAttribute("data-dim", dim);
 }
 
 function paintCars(parts: TrainParts, livery: Livery) {
@@ -197,15 +207,17 @@ function paintCars(parts: TrainParts, livery: Livery) {
 const inView = (view: View | null, x: number, y: number, margin: number) =>
   !view || (x >= view.x - margin && x <= view.x + view.w + margin && y >= view.y - margin && y <= view.y + view.h + margin);
 
-export const Trains = memo(function Trains({ layout, intervals, count, subscribe }: TrainsProps) {
+export const Trains = memo(function Trains({ layout, intervals, count, focusLineId, subscribe }: TrainsProps) {
   const groupRefs = useRef<Array<SVGGElement | null>>([]);
   const trainsRef = useRef<Train[]>([]);
   const routesRef = useRef<Record<string, Route>>({});
   const liveriesRef = useRef<Livery[]>([]);
   const liveryIndex = useRef(0);
   const viewRef = useRef<View | null>(null);
+  const focusRef = useRef<string | null>(null);
 
   useEffect(() => subscribe((view) => { viewRef.current = view; }), [subscribe]);
+  useEffect(() => { focusRef.current = focusLineId; }, [focusLineId]);
 
   useEffect(() => {
     const routes: Record<string, Route> = {};
@@ -267,12 +279,14 @@ export const Trains = memo(function Trains({ layout, intervals, count, subscribe
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       const view = viewRef.current;
+      const focus = focusRef.current;
       trainsRef.current.forEach((train, i) => {
         const el = groupRefs.current[i];
         const route = routesRef.current[train.lineId];
         const line = layout.lines[train.lineId];
         if (!el) return;
         const parts = partsOf(el);
+        dimTrain(el, parts, focus ? String(train.lineId !== focus) : null);
         if (!route || !line) { showTrain(el, parts, false); return; }
         const tail = tailOffset(train.cars);
 
@@ -383,7 +397,7 @@ export const Trains = memo(function Trains({ layout, intervals, count, subscribe
   return (
     <g className="trains">
       {Array.from({ length: count }, (_, i) => (
-        <g key={i} className="train" ref={(el) => { groupRefs.current[i] = el; }} visibility="hidden">
+        <g key={i} className="train dimmable" ref={(el) => { groupRefs.current[i] = el; }} visibility="hidden">
           {Array.from({ length: MAX_CARS }, (_, k) => (
             <g key={k} className="car" visibility="hidden">
               <g>

@@ -91,7 +91,7 @@ export function JourneyStrip({ lines, progressByLine, focusLineId, onHover, onPi
           <rect x="0" y="9" width="34" height="2" rx="1" fill="#0019A8" />
         </svg>
       </div>
-      <div ref={scroller} onScroll={measure} className="strip-scroller flex w-full min-w-0 items-stretch gap-2 overflow-x-auto px-3.5 pt-1 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div ref={scroller} onScroll={measure} onMouseLeave={() => onHover(null)} className="strip-scroller flex w-full min-w-0 items-stretch gap-2 overflow-x-auto px-3.5 pt-1 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         {lines.map((line) => {
           const p = progressByLine[line.id];
           const colour = TFL_COLOURS[line.tfl];
@@ -100,7 +100,6 @@ export function JourneyStrip({ lines, progressByLine, focusLineId, onHover, onPi
               key={line.id}
               title={`${line.phase} · ${line.name}`}
               onMouseEnter={() => onHover(line.id)}
-              onMouseLeave={() => onHover(null)}
               onClick={() => onPick(line.id)}
               className={cx("flex min-w-[176px] flex-none cursor-pointer flex-col justify-end gap-1.5 rounded-md px-3 pt-1.5 pb-1.5 transition hover:bg-tint", focusLineId === line.id && "bg-tint")}
             >

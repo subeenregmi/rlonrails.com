@@ -2641,7 +2641,7 @@ export const CURRICULUM: Curriculum = {
       ],
       "pill": {
         "x": 1992,
-        "y": 1300,
+        "y": 1240,
         "anchor": "start"
       },
       "stations": [
