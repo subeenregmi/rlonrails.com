@@ -60,6 +60,11 @@ const clampView = (v: View, world: Bounds) => {
   v.x = v.w >= world.w ? (world.x + maxX - v.w) / 2 : clamp(v.x, world.x, maxX - v.w);
   v.y = v.h >= world.h ? (world.y + maxY - v.h) / 2 : clamp(v.y, world.y, maxY - v.h);
 };
+// Where a view of this size is allowed to sit; null once it outgrows the world,
+// which can then only be shown centred.
+type Range = [number, number] | null;
+const panRange = (lo: number, size: number, extent: number): Range => (extent >= size ? null : [lo + extent / 2, lo + size - extent / 2]);
+const panCentre = (centre: number, range: Range, mid: number) => (range ? clamp(centre, range[0], range[1]) : mid);
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 interface Sample { x: number; y: number; t: number }
 const flickVelocity = (trail: Sample[], now: number) => {
@@ -597,7 +602,7 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     if (!svg) return;
     const c = committed.current;
     const p = pending.current;
-    clampView(p, worldRef.current);
+    if (!flightRef.current) clampView(p, worldRef.current);
     const W = wrapRect().width;
     const k = c.w / p.w;
     const tx = ((c.x - p.x) * W) / p.w;
@@ -663,18 +668,31 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     if (flightRef.current) cancelAnimationFrame(flightRef.current);
     const v = pending.current;
     const from = { cx: v.x + v.w / 2, cy: v.y + v.h / 2, w: v.w };
-    const target = { cx, cy, w: clampWidth(w) };
+    // Clamp where the flight lands, once, so the path between two in-bounds
+    // views can be a straight line. Clamping every frame instead pins the
+    // camera for as long as the view is wider than the world and then lurches
+    // it through the rest of the pan, which is the dog-leg the intro showed.
+    const b = worldRef.current;
+    const targetW = clampWidth(w);
+    const target = {
+      cx: panCentre(cx, panRange(b.x, b.w, targetW), b.x + b.w / 2),
+      cy: panCentre(cy, panRange(b.y, b.h, targetW / aspect()), b.y + b.h / 2),
+      w: targetW,
+    };
     const start = performance.now();
     const flightMs = reducedMotion() ? 1 : duration;
     const step = (now: number) => {
       const k = easeInOut(Math.min(1, (now - start) / flightMs));
       setViewCentered(from.cx + (target.cx - from.cx) * k, from.cy + (target.cy - from.cy) * k, from.w + (target.w - from.w) * k, false);
       if (k < 1) { flightRef.current = requestAnimationFrame(step); return; }
+      // Clearing the flight first makes this last render clamp, which matters
+      // only if the viewport changed shape mid-flight.
       flightRef.current = null;
+      render(false);
       settle();
     };
     flightRef.current = requestAnimationFrame(step);
-  }, [setViewCentered, settle, clampWidth, stopGlide]);
+  }, [setViewCentered, settle, clampWidth, stopGlide, aspect, render]);
 
   const fitAll = useCallback((duration?: number) => {
     const b = worldRef.current;
