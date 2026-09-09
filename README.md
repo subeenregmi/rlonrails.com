@@ -9,17 +9,24 @@ Local
 make up
 ```
 
-Production — [rlonrails.com](https://rlonrails.com), tracks `main`
+Production — [rlonrails.com](https://rlonrails.com), tracks the newest stable
+`v*` tag
 ```sh
 make deploy
 ```
 
-Development — [dev.rlonrails.com](https://dev.rlonrails.com), tracks `development`
+Development — [dev.rlonrails.com](https://dev.rlonrails.com), tracks `main`
 ```sh
 make deploy-dev
 ```
 
-`deploy` and `deploy-dev` each reset the checkout to their branch, so they are
-run from separate clones. On the home server that is the `rlonrails.com` and
-`dev.rlonrails.com` submodules of
+Merging to `main` refreshes the development site. Publishing a release moves
+production to that tag; pre-releases (`v2.0.0-rc1`) are skipped, so production
+only ever lands on a stable one.
+
+Both events reach the homeserver through the same fixed SSH command, so
+`deploy` sets production and then hands off to the development checkout beside
+it (`DEV_CHECKOUT`, default `../dev.rlonrails.com`). The two targets reset
+their checkout to different refs, so they need separate clones — on the
+homeserver those are the `rlonrails.com` and `dev.rlonrails.com` submodules of
 [docker-containers](https://github.com/subeenregmi/docker-containers).
