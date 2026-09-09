@@ -814,6 +814,31 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     return () => svg.removeEventListener("wheel", onWheel);
   }, [zoomAt, render, wrapRect, stopGlide]);
 
+  // Pinching the map used to scale the whole document instead. `touch-action:
+  // none` is enough for Chrome, but WebKit zooms the page through its own
+  // non-standard gesture events, which touch-action does not govern. Block the
+  // page gesture over the map so two fingers there always reach the map's own
+  // zoom, and only there: the station panel and the journey pages are outside
+  // .map-wrap and still pinch-zoom for anyone reading them.
+  useEffect(() => {
+    const overMap = (target: EventTarget | null) => target instanceof Element && !!target.closest(".map-wrap");
+    const stopGesture = (event: Event) => { if (overMap(event.target)) event.preventDefault(); };
+    const onTouchMove = (event: TouchEvent) => {
+      if (event.touches.length > 1 && overMap(event.target)) event.preventDefault();
+    };
+    const opts = { passive: false };
+    document.addEventListener("gesturestart", stopGesture, opts);
+    document.addEventListener("gesturechange", stopGesture, opts);
+    document.addEventListener("gestureend", stopGesture, opts);
+    document.addEventListener("touchmove", onTouchMove, opts);
+    return () => {
+      document.removeEventListener("gesturestart", stopGesture);
+      document.removeEventListener("gesturechange", stopGesture);
+      document.removeEventListener("gestureend", stopGesture);
+      document.removeEventListener("touchmove", onTouchMove);
+    };
+  }, []);
+
   const popStation = useCallback((station: Station, colour: string) => {
     const el = stationRefs.current.get(station.id);
     if (!el) return;

@@ -127,6 +127,15 @@ body::before {
 }
 .drag-shield {
   cursor: grabbing;
+  touch-action: none;
+}
+/* Chrome reads touch-action across every finger in a gesture, so a pinch that
+   lands one finger on an overlay and one on the map would zoom the page. The
+   overlays that never scroll opt out of browser gestures too; the menu's
+   scrolling panel is left alone. */
+.bar-pill,
+.mm-frame {
+  touch-action: none;
 }
 /* A pan begun on the (unselectable) map would still paint a selection across
    the panel beside it, so the whole page stops selecting for the drag. */
