@@ -40,9 +40,7 @@ export const statusOf = (progress: Progress, id: string): Status => stationProgr
 
 export const isRead = (progress: Progress, id: string) => statusOf(progress, id) === "read";
 
-export const hasSkill = (progress: Progress, id: string, skill: Skill) => stationProgress(progress, id).skills.includes(skill);
-
-export const isExercise = (station: Station) => station.tag === "exercise";
+const isExercise = (station: Station) => station.tag === "exercise";
 
 /**
  * Core stations are for everyone. Everything else on a specialisation line — its
@@ -54,12 +52,6 @@ export function isOnRoute(station: Station, line: Line, tracks: string[]): boole
   if (station.tag === "reference") return false;
   if (station.tag === "core" || station.always) return true;
   return !line.track || tracks.includes(line.id);
-}
-
-export function routeIds(curriculum: Curriculum, tracks: string[]): Set<string> {
-  const ids = new Set<string>();
-  for (const line of curriculum.lines) for (const station of line.stations) if (isOnRoute(station, line, tracks)) ids.add(station.id);
-  return ids;
 }
 
 export interface Requirement {
@@ -237,13 +229,14 @@ function latestWithStatus(progress: Progress, status: Status, stampOf: (s: Stati
   return bestId;
 }
 
-function onwardFrom(curriculum: Curriculum, stationId: string, progress: Progress, ready: boolean): Station | null {
+/** The next station further down the line the reader was last on, if the route goes that way. */
+function onwardFrom(curriculum: Curriculum, stationId: string, progress: Progress): Station | null {
   const found = findStation(curriculum, stationId);
   if (!found) return null;
   const index = found.line.stations.indexOf(found.station);
   return found.line.stations
     .slice(index + 1)
-    .find((s) => !isRead(progress, s.id) && isOnRoute(s, found.line, progress.tracks) && (!ready || prereqsMet(s, progress)))
+    .find((s) => !isRead(progress, s.id) && isOnRoute(s, found.line, progress.tracks) && prereqsMet(s, progress))
     ?? null;
 }
 
@@ -258,7 +251,7 @@ export function nextStop(curriculum: Curriculum, progress: Progress): Station | 
   if (reading && isOnRoute(reading.station, reading.line, progress.tracks)) return reading.station;
 
   const lastReadId = latestWithStatus(progress, "read", (s) => s.readAt);
-  const onward = lastReadId ? onwardFrom(curriculum, lastReadId, progress, true) : null;
+  const onward = lastReadId ? onwardFrom(curriculum, lastReadId, progress) : null;
   if (onward) return onward;
 
   const scan = (ready: boolean) => {

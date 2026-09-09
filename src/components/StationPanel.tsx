@@ -2,7 +2,7 @@
 
 import type { Line, LogEntry, Resource, ResourceKind, Station } from "@/lib/curriculum";
 import {
-  SKILLS, STATUSES, deliverables, emptyStation, lineProgress, requirement, stationProgress, statusOf,
+  SKILLS, STATUSES, deliverables, emptyStation, isOnRoute, lineProgress, requirement, stationProgress, statusOf,
   type Progress, type Requirement, type Skill, type Status,
 } from "@/lib/progress";
 import { TFL_COLOURS, textOn } from "@/lib/tfl";
@@ -83,6 +83,7 @@ export function StationPanel(props: StationPanelProps) {
   const complete = log.length > 0 && logDone === log.length && ownDone === (station?.resources.length ?? 0);
   const req = station ? requirement(station, resources) : null;
   const dels = station ? deliverables(station, current.deliverables) : null;
+  const onRoute = station && line ? isOnRoute(station, line, progress.tracks) : true;
 
   return (
     <aside
@@ -115,7 +116,9 @@ export function StationPanel(props: StationPanelProps) {
             <p className="text-[13px] leading-snug text-ink-soft">{station.meta}</p>
             <div className="mt-3 flex items-baseline gap-2">
               <span className={cx("inline-block flex-none rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.08em] text-white", TAG_STYLE[station.tag])}>{TAG_LABEL[station.tag]}</span>
-              <span className="text-[12px] leading-snug text-ink-faint">{TAG_NOTE[station.tag]}</span>
+              <span className="text-[12px] leading-snug text-ink-faint">
+                {onRoute ? TAG_NOTE[station.tag] : `Not on your route. Pick ${line.short} in the menu if this specialisation is yours.`}
+              </span>
             </div>
 
             {station.outcome && (
@@ -125,7 +128,7 @@ export function StationPanel(props: StationPanelProps) {
               </>
             )}
 
-            {missing.length > 0 && (
+            {missing.length > 0 && current.status !== "read" && (
               <div className="mt-5 rounded-xl border border-rule bg-tint px-3 py-2.5">
                 <h3 className="mb-1.5 flex items-center gap-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">
                   <LockClosedIcon className="h-3 w-3" /> Read first
