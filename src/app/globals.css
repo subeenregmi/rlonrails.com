@@ -636,6 +636,48 @@ body::before {
   pointer-events: none;
 }
 
+/*
+ * Touch devices: keep the map's state, drop its motion. Lit lamps, active links
+ * and running trains all multiply as stations are ticked off, and each one
+ * repaints a slice of a very large SVG on every frame — which is why the map got
+ * heavier the further you got through it.
+ */
+@media (pointer: coarse) {
+  .lamp.lit .lamp-rays {
+    animation: none;
+    opacity: 0.45;
+  }
+  .station.here .halo {
+    animation: none;
+    opacity: 0.2;
+    transform: scale(1.5);
+  }
+  .you-are-here-bob,
+  .track-next,
+  .link.active,
+  .wave-mark {
+    animation: none;
+  }
+  .trains > g:nth-of-type(n + 7) {
+    display: none;
+  }
+}
+
+/*
+ * Phone-sized screens: the station panel covers the map completely, so stop
+ * drawing what nobody can see. The delay lets the panel finish sliding over
+ * first; closing reveals the map again immediately.
+ */
+@media (max-width: 639.98px) {
+  .map-wrap {
+    transition: visibility 0s;
+  }
+  .panel-open .map-wrap {
+    visibility: hidden;
+    transition-delay: 400ms;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .intro,
   .intro * {
