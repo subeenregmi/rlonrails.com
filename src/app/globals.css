@@ -657,6 +657,9 @@ body.map-dragging {
 .panel-enter {
   animation: slide 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+.panel-switch {
+  animation: nudge 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
 .toast-enter {
   animation: toast-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
@@ -1015,6 +1018,14 @@ body.map-dragging {
   }
   to {
     opacity: 1;
+    transform: none;
+  }
+}
+@keyframes nudge {
+  from {
+    transform: translateX(14px);
+  }
+  to {
     transform: none;
   }
 }

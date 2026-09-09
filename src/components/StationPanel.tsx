@@ -98,7 +98,7 @@ export function StationPanel(props: StationPanelProps) {
       aria-hidden={!open}
     >
       {line && (
-        <div key={station?.id ?? line.id} className="panel-enter w-full pb-[calc(1.5rem+var(--safe-bottom))] sm:w-[380px]">
+        <div key={station?.id ?? line.id} className="panel-switch w-full pb-[calc(1.5rem+var(--safe-bottom))] sm:w-[380px]">
           <header className="relative px-5 pt-[calc(1rem+var(--safe-top))] pb-4" style={{ background: colour, color: on }}>
             <button
               type="button"
