@@ -1,8 +1,13 @@
 name: Deploy to homeserver
 
 on:
+  # A push to main refreshes dev.rlonrails.com; publishing a release moves
+  # rlonrails.com to the new tag. Both reach the same fixed command on the
+  # homeserver, which re-converges both sites either way.
   push:
-    branches: [main, development]
+    branches: [main]
+  release:
+    types: [published]
 
 jobs:
   deploy:
