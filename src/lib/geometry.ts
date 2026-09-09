@@ -48,7 +48,7 @@ export interface MapLayout {
 
 export const CORNER_RADIUS = 46;
 export const LABEL_GAP = 20;
-export const STATION_RADIUS: Record<string, number> = { essential: 10, project: 10, deeper: 8, optional: 8 };
+export const STATION_RADIUS: Record<string, number> = { core: 10, exercise: 10, track: 9, reference: 8 };
 export const INTERCHANGE_RADIUS = 13;
 const PILL_OFFSET = 56;
 const PILL_SIDE_OFFSET = 30;

@@ -416,8 +416,8 @@ body::before {
 .label.selected {
   fill: var(--c);
 }
-.label.deeper,
-.label.optional {
+.label.reference,
+.label.track {
   font-size: calc(14px * var(--map-text));
 }
 

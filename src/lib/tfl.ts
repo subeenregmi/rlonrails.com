@@ -15,11 +15,15 @@ export const TFL_COLOURS = {
   tram: "#84B817",
   overground: "#EE7C0E",
   northern: "#000000",
+  mildmay: "#437EC0",
+  lioness: "#FAA61A",
+  suffragette: "#5BBD72",
+  liberty: "#5D6061",
 } as const;
 
 export type TflLine = keyof typeof TFL_COLOURS;
 
-const LIGHT_LINES: ReadonlySet<TflLine> = new Set(["circle", "hammersmith", "waterloo", "jubilee", "tram"]);
+const LIGHT_LINES: ReadonlySet<TflLine> = new Set(["circle", "hammersmith", "waterloo", "jubilee", "tram", "lioness", "suffragette"]);
 
 export const isLightLine = (line: TflLine) => LIGHT_LINES.has(line);
 

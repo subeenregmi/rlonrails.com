@@ -1,7 +1,10 @@
 "use client";
 
 import type { Line, LogEntry, Resource, ResourceKind, Station } from "@/lib/curriculum";
-import { STATUSES, emptyStation, lineProgress, requirement, stationProgress, statusOf, type Progress, type Requirement, type Status } from "@/lib/progress";
+import {
+  SKILLS, STATUSES, deliverables, emptyStation, lineProgress, requirement, stationProgress, statusOf,
+  type Progress, type Requirement, type Skill, type Status,
+} from "@/lib/progress";
 import { TFL_COLOURS, textOn } from "@/lib/tfl";
 import { cx } from "@/lib/cx";
 import { ArrowLeftIcon, ArrowRightIcon, ArrowTopRightOnSquareIcon, CheckIcon, LockClosedIcon } from "@heroicons/react/16/solid";
@@ -20,8 +23,11 @@ interface StationPanelProps {
   progress: Progress;
   log: LogEntry[];
   connections: Connection[];
+  missing: Station[];
   saveError: boolean;
   onStatus: (status: Status) => void;
+  onSkill: (skill: Skill) => void;
+  onToggleDeliverable: (deliverableId: string) => void;
   onToggleResource: (resourceId: string) => void;
   onSelect: (id: string) => void;
   onClose: () => void;
@@ -40,10 +46,22 @@ const KIND_STYLE: Record<ResourceKind, string> = {
   blog: "bg-[#0098D4] text-white",
   site: "bg-[#A0A5A9] text-white",
 };
-const STATUS_LABEL: Record<Status, string> = { unread: "Not started", reading: "Reading", read: "Read" };
-const TAG_LABEL: Record<Station["tag"], string> = { essential: "Essential", deeper: "Deeper", optional: "Optional", project: "Project" };
+const STATUS_LABEL: Record<Status, string> = { unread: "Not started", reading: "Reading", read: "Done" };
+const TAG_LABEL: Record<Station["tag"], string> = { core: "Core", track: "Track", reference: "Reference", exercise: "Exercise" };
 const TAG_STYLE: Record<Station["tag"], string> = {
-  essential: "bg-tfl-red", deeper: "bg-[#5A5D61]", optional: "bg-ink-faint", project: "bg-tfl-blue",
+  core: "bg-tfl-red", track: "bg-[#5A5D61]", reference: "bg-ink-faint", exercise: "bg-tfl-blue",
+};
+const TAG_NOTE: Record<Station["tag"], string> = {
+  core: "Everyone needs this one.",
+  track: "Needed for this specialisation, not for everyone.",
+  reference: "Come back to it when a project asks for it.",
+  exercise: "Done when the deliverables below exist.",
+};
+const SKILL_LABEL: Record<Skill, string> = { understood: "Understood", implemented: "Implemented", investigated: "Investigated" };
+const SKILL_HINT: Record<Skill, string> = {
+  understood: "I can explain it and say what it buys.",
+  implemented: "I have written a working version myself.",
+  investigated: "I have tested a claim about it with my own evidence.",
 };
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
@@ -51,7 +69,7 @@ const sourceWord = (station: Station) =>
   station.resources.some((r) => r.kind === "book") ? "book" : station.resources.some((r) => r.kind === "course") ? "course" : "set";
 
 export function StationPanel(props: StationPanelProps) {
-  const { station, line, progress, log, connections, saveError, onStatus, onToggleResource, onSelect, onClose } = props;
+  const { station, line, progress, log, connections, missing, saveError, onStatus, onSkill, onToggleDeliverable, onToggleResource, onSelect, onClose } = props;
   const current = station ? stationProgress(progress, station.id) : emptyStation();
   const resources = progress.resources;
   const open = Boolean(line);
@@ -64,6 +82,7 @@ export function StationPanel(props: StationPanelProps) {
   const ownDone = station ? station.resources.filter((r) => resources[r.id]).length : 0;
   const complete = log.length > 0 && logDone === log.length && ownDone === (station?.resources.length ?? 0);
   const req = station ? requirement(station, resources) : null;
+  const dels = station ? deliverables(station, current.deliverables) : null;
 
   return (
     <aside
@@ -94,7 +113,32 @@ export function StationPanel(props: StationPanelProps) {
           {station && (
           <div className="px-5 pt-4">
             <p className="text-[13px] leading-snug text-ink-soft">{station.meta}</p>
-            <span className={cx("mt-3 inline-block rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.08em] text-white", TAG_STYLE[station.tag])}>{TAG_LABEL[station.tag]}</span>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className={cx("inline-block flex-none rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.08em] text-white", TAG_STYLE[station.tag])}>{TAG_LABEL[station.tag]}</span>
+              <span className="text-[12px] leading-snug text-ink-faint">{TAG_NOTE[station.tag]}</span>
+            </div>
+
+            {station.outcome && (
+              <>
+                <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">What you can do after this</h3>
+                <p className="text-[14.5px] leading-normal">{station.outcome}</p>
+              </>
+            )}
+
+            {missing.length > 0 && (
+              <div className="mt-5 rounded-xl border border-rule bg-tint px-3 py-2.5">
+                <h3 className="mb-1.5 flex items-center gap-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">
+                  <LockClosedIcon className="h-3 w-3" /> Read first
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {missing.map((s) => (
+                    <button key={s.id} type="button" onClick={() => onSelect(s.id)} className="rounded-full bg-surface px-2.5 py-1 text-[12.5px] hover:bg-tint-strong">
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">Status</h3>
             <div className="grid grid-cols-3 gap-1 rounded-xl bg-tint p-1">
@@ -115,7 +159,8 @@ export function StationPanel(props: StationPanelProps) {
             </div>
             <div className="mt-2 min-h-4 text-center text-[12px] text-ink-soft">
               {current.status === "read" && current.readAt && `Read on ${fmtDate(current.readAt)}`}
-              {current.status === "reading" && req && `${req.required.done} of ${req.required.total} required${req.pick.total ? ` · ${req.pick.done} of ${req.pick.need} picked` : ""}`}
+              {current.status === "reading" && dels && dels.total > 0 && `${dels.done} of ${dels.total} deliverables`}
+              {current.status === "reading" && req && dels?.total === 0 && `${req.required.done} of ${req.required.total} required${req.pick.total ? ` · ${req.pick.done} of ${req.pick.need} picked` : ""}`}
               {log.length > 0 && (
                 <span className={cx("block", complete && "font-bold")} style={complete ? { color: colour } : undefined}>
                   {complete ? `Whole ${sourceWord(station)} complete` : `Whole ${sourceWord(station)} · ${ownDone + logDone} / ${station.resources.length + log.length}`}
@@ -123,6 +168,30 @@ export function StationPanel(props: StationPanelProps) {
               )}
               {saveError && <span className="block text-tfl-red">Could not save to browser storage.</span>}
             </div>
+
+            <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">Demonstrated</h3>
+            <div className="flex flex-wrap gap-1.5">
+              {SKILLS.map((skill) => {
+                const on = current.skills.includes(skill);
+                return (
+                  <button
+                    key={skill}
+                    type="button"
+                    onClick={() => onSkill(skill)}
+                    aria-pressed={on}
+                    title={SKILL_HINT[skill]}
+                    className={cx("rounded-full border px-3 py-1.5 text-[12.5px] transition", on ? "border-transparent text-white" : "border-rule text-ink-soft hover:bg-tint")}
+                    style={on ? { background: colour } : undefined}
+                  >
+                    {SKILL_LABEL[skill]}
+                  </button>
+                );
+              })}
+            </div>
+
+            {station.deliverables && station.deliverables.length > 0 && dels && (
+              <DeliverableList station={station} done={current.deliverables} dels={dels} colour={colour} onToggle={onToggleDeliverable} />
+            )}
 
             {req && <ReadList station={station} req={req} resources={resources} colour={colour} onToggle={onToggleResource} />}
             {log.length > 0 && <LogList log={log} resources={resources} done={logDone} colour={colour} onToggle={onToggleResource} onSelect={onSelect} />}
@@ -203,6 +272,35 @@ function LineStops({ line, progress, colour, onSelect }: { line: Line; progress:
         })}
       </ol>
     </div>
+  );
+}
+
+function DeliverableList({ station, done, dels, colour, onToggle }: { station: Station; done: string[]; dels: { done: number; total: number }; colour: string; onToggle: (id: string) => void }) {
+  return (
+    <>
+      <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">Deliverables · {dels.done} / {dels.total}</h3>
+      <p className="mb-1.5 text-[11.5px] text-ink-faint">This station is done when these exist, not when the reading is ticked.</p>
+      <ul className="flex flex-col gap-1.5">
+        {station.deliverables?.map((deliverable) => {
+          const on = done.includes(deliverable.id);
+          return (
+            <li key={deliverable.id} className={cx("flex items-start gap-2.5 rounded-lg border px-2.5 py-2 transition", on ? "border-transparent bg-tint" : "border-rule bg-surface")}>
+              <button
+                type="button"
+                onClick={() => onToggle(deliverable.id)}
+                aria-pressed={on}
+                aria-label={on ? `Mark not done: ${deliverable.label}` : `Mark done: ${deliverable.label}`}
+                className="mt-px flex h-5 w-5 flex-none items-center justify-center rounded-md border-2 text-white transition"
+                style={{ borderColor: colour, background: on ? colour : "var(--surface)" }}
+              >
+                {on && <CheckIcon className="h-3 w-3" />}
+              </button>
+              <span className={cx("min-w-0 flex-1 text-[13.5px] leading-snug", on && "text-ink-soft")}>{deliverable.label}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 
