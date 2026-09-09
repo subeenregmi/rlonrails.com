@@ -17,3 +17,11 @@ deploy:
 
 deploy-down:
 	@docker compose -f compose.prod.yaml down
+
+deploy-dev:
+	git fetch origin development
+	git reset --hard origin/development
+	@docker compose -f compose.dev.yaml up -d --build
+
+deploy-dev-down:
+	@docker compose -f compose.dev.yaml down
