@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Line } from "@/lib/curriculum";
 import type { LineProgress, Totals } from "@/lib/progress";
 import { TFL_COLOURS, isLightLine } from "@/lib/tfl";
@@ -29,51 +29,86 @@ interface FloatingBarProps {
 
 const tool = "rounded-full bg-tint px-3 py-1.5 text-[13px] text-ink transition hover:bg-tint-strong active:translate-y-px";
 
+// Kept in step with the landscape block in globals.css, which owns the folding
+// itself. This only decides whether the roundel is a real control, so a stale
+// first paint costs nothing visually.
+const COMPACT = "(orientation: landscape) and (max-height: 540px)";
+
+let compactQuery: MediaQueryList | null = null;
+const query = () => (compactQuery ??= window.matchMedia(COMPACT));
+
+function useCompact() {
+  const subscribe = useCallback((notify: () => void) => {
+    query().addEventListener("change", notify);
+    return () => query().removeEventListener("change", notify);
+  }, []);
+  return useSyncExternalStore(subscribe, () => query().matches, () => false);
+}
+
 export function FloatingBar(props: FloatingBarProps) {
   const { totals, trainCount, lines, progressByLine, focusLineId, days, tracks, onToggleTrack, onJourney, onHoverLine, onPickLine, onExport, onImport, onReset, onSelectAll } = props;
   const [open, setOpen] = useState(false);
+  const [barOpen, setBarOpen] = useState(false);
+  const compact = useCompact();
   const rootRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Anything that acts on the map puts the bar away with it, so a landscape
+  // phone is back to a full-screen map the moment the choice is made.
+  const fold = useCallback(() => { setOpen(false); setBarOpen(false); }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open && !barOpen) return;
     const onDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      if (!rootRef.current?.contains(event.target as Node)) fold();
     };
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") fold(); };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("pointerdown", onDown); document.removeEventListener("keydown", onKey); };
-  }, [open]);
+  }, [open, barOpen, fold]);
 
   return (
-    <div ref={rootRef} className="floating-bar absolute top-[calc(1rem+var(--safe-top))] left-[calc(1rem+var(--safe-left))] z-20 max-w-[calc(100%-2rem-var(--safe-left)-var(--safe-right))]">
-      <div className="flex h-[60px] w-fit items-center gap-2.5 rounded-full bg-tfl-blue pr-2.5 pl-2 text-white shadow-[0_10px_30px_rgba(0,25,168,.28),inset_0_-3px_0_#E32017] sm:gap-3.5">
-        <Roundel className="h-11 w-11 flex-none drop-shadow-[0_2px_3px_rgba(0,0,0,.3)]" />
-        <h1 className="hidden whitespace-nowrap text-[19px] lowercase leading-none tracking-[0.07em] sm:block">rl on rails</h1>
-        <span className="hidden h-6 w-px bg-white/25 sm:block" />
-        <div className="flex flex-none items-center gap-2 text-[12.5px]" title={`${totals.routeRead} of ${totals.routeTotal} stations on your route · ${totals.read} of ${totals.total} on the whole map`}>
-          <div className="hidden h-2 w-16 overflow-hidden rounded-full bg-white/20 min-[400px]:block sm:w-24">
-            <div className={cx("progress-fill h-full rounded-full transition-[width] duration-700", totals.routeRead >= totals.routeTotal && "rainbow")} style={{ width: `${(100 * totals.routeRead) / totals.routeTotal}%` }} />
+    <div ref={rootRef} className={cx("floating-bar absolute top-[calc(1rem+var(--safe-top))] left-[calc(1rem+var(--safe-left))] z-20 max-w-[calc(100%-2rem-var(--safe-left)-var(--safe-right))]", barOpen && "bar-open")}>
+      <div className="bar-pill flex h-[60px] w-fit items-center gap-2.5 rounded-full bg-tfl-blue pr-2.5 pl-2 text-white shadow-[0_10px_30px_rgba(0,25,168,.28),inset_0_-3px_0_#E32017] sm:gap-3.5">
+        <button
+          type="button"
+          className="bar-badge flex-none rounded-full"
+          onClick={() => { setBarOpen((v) => !v); setOpen(false); }}
+          aria-expanded={compact ? barOpen : undefined}
+          aria-label={compact ? (barOpen ? "Hide the controls" : "Show the controls") : undefined}
+          aria-hidden={compact ? undefined : true}
+          tabIndex={compact ? undefined : -1}
+        >
+          <Roundel className="h-11 w-11 flex-none drop-shadow-[0_2px_3px_rgba(0,0,0,.3)]" />
+        </button>
+        <div className="bar-reveal">
+          <div className="bar-rest flex items-center gap-2.5 sm:gap-3.5">
+            <h1 className="hidden whitespace-nowrap text-[19px] lowercase leading-none tracking-[0.07em] sm:block">rl on rails</h1>
+            <span className="hidden h-6 w-px bg-white/25 sm:block" />
+            <div className="flex flex-none items-center gap-2 text-[12.5px]" title={`${totals.routeRead} of ${totals.routeTotal} stations on your route · ${totals.read} of ${totals.total} on the whole map`}>
+              <div className="hidden h-2 w-16 overflow-hidden rounded-full bg-white/20 min-[400px]:block sm:w-24">
+                <div className={cx("progress-fill h-full rounded-full transition-[width] duration-700", totals.routeRead >= totals.routeTotal && "rainbow")} style={{ width: `${(100 * totals.routeRead) / totals.routeTotal}%` }} />
+              </div>
+              <span className="whitespace-nowrap">{totals.routeRead} / {totals.routeTotal}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => { fold(); onJourney(); }}
+              title="Your journey"
+              className="flex h-9 flex-none items-center rounded-full bg-white/12 px-2.5 transition hover:bg-white/25"
+            >
+              <MiniHeatmap days={days} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+              className={cx("flex h-9 flex-none items-center gap-1.5 rounded-full px-3.5 text-[13px] transition", open ? "bg-white text-[#111]" : "bg-white/12 hover:bg-white/25")}
+            >
+              Menu <ChevronDownIcon className={cx("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+            </button>
           </div>
-          <span className="whitespace-nowrap">{totals.routeRead} / {totals.routeTotal}</span>
         </div>
-        <button
-          type="button"
-          onClick={() => { setOpen(false); onJourney(); }}
-          title="Your journey"
-          className="flex h-9 flex-none items-center rounded-full bg-white/12 px-2.5 transition hover:bg-white/25"
-        >
-          <MiniHeatmap days={days} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className={cx("flex h-9 flex-none items-center gap-1.5 rounded-full px-3.5 text-[13px] transition", open ? "bg-white text-[#111]" : "bg-white/12 hover:bg-white/25")}
-        >
-          Menu <ChevronDownIcon className={cx("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
-        </button>
       </div>
 
       {open && (
@@ -89,7 +124,7 @@ export function FloatingBar(props: FloatingBarProps) {
                     key={line.id}
                     onMouseEnter={() => onHoverLine(line.id)}
                     onMouseLeave={() => onHoverLine(null)}
-                    onClick={() => { onPickLine(line.id); setOpen(false); }}
+                    onClick={() => { onPickLine(line.id); fold(); }}
                     className={cx("grid cursor-pointer grid-cols-[6px_1fr_auto] items-center gap-x-2.5 gap-y-1 rounded-lg px-2 py-1.5 transition hover:bg-tint", focusLineId === line.id && "bg-tint")}
                   >
                     <span className="h-7 w-1.5 rounded" style={{ background: colour }} />
@@ -159,9 +194,9 @@ export function FloatingBar(props: FloatingBarProps) {
                 <button type="button" className={tool} onClick={() => fileRef.current?.click()}>Import</button>
                 <input ref={fileRef} type="file" accept="application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onImport(f); e.target.value = ""; }} />
                 {process.env.NODE_ENV !== "production" && (
-                  <button type="button" className={tool} onClick={() => { setOpen(false); onSelectAll(); }} title="Mark every station and resource as read">Select all</button>
+                  <button type="button" className={tool} onClick={() => { fold(); onSelectAll(); }} title="Mark every station and resource as read">Select all</button>
                 )}
-                <button type="button" className={`${tool} hover:bg-tfl-red hover:text-white`} onClick={() => { setOpen(false); onReset(); }}>Reset</button>
+                <button type="button" className={`${tool} hover:bg-tfl-red hover:text-white`} onClick={() => { fold(); onReset(); }}>Reset</button>
               </div>
             </div>
             <p className="text-[11px] leading-snug text-ink-faint">Scroll to pan, pinch or ⌘-scroll to zoom, drag to move. Arrow keys move along a line, space marks a station read.</p>

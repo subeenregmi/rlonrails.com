@@ -5,6 +5,7 @@ import type { Line } from "@/lib/curriculum";
 import type { LineProgress } from "@/lib/progress";
 import { TFL_COLOURS } from "@/lib/tfl";
 import { cx } from "@/lib/cx";
+import { ChevronUpIcon } from "@heroicons/react/16/solid";
 
 interface JourneyStripProps {
   lines: Line[];
@@ -20,6 +21,10 @@ export function JourneyStrip({ lines, progressByLine, focusLineId, onHover, onPi
   const scroller = useRef<HTMLDivElement>(null);
   const rail = useRef<HTMLDivElement>(null);
   const [scroll, setScroll] = useState({ fraction: 0, overflow: false });
+  // Only landscape phones read this: there the strip is a drawer over the map
+  // (see globals.css), everywhere else it is the footer it has always been and
+  // the class does nothing.
+  const [open, setOpen] = useState(false);
   const drag = useRef<{ startX: number; startLeft: number } | null>(null);
 
   const measure = useCallback(() => {
@@ -67,7 +72,16 @@ export function JourneyStrip({ lines, progressByLine, focusLineId, onHover, onPi
   const endDrag = () => { drag.current = null; };
 
   return (
-    <footer className="journey-strip flex min-w-0 flex-col border-t border-rule bg-surface">
+    <footer className={cx("journey-strip flex min-w-0 flex-col border-t border-rule bg-surface", open && "strip-open")}>
+      <button
+        type="button"
+        className="strip-handle"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={open ? "Hide your journey" : "Show your journey"}
+      >
+        <ChevronUpIcon className="h-4 w-4" />
+      </button>
       <div
         ref={rail}
         className={cx("rail relative mt-1.5 mr-[calc(0.875rem+var(--safe-right))] ml-[calc(0.875rem+var(--safe-left))] h-3 cursor-pointer touch-none select-none transition-opacity", !scroll.overflow && "pointer-events-none opacity-0")}
@@ -100,7 +114,7 @@ export function JourneyStrip({ lines, progressByLine, focusLineId, onHover, onPi
               key={line.id}
               title={`${line.phase} · ${line.name}`}
               onMouseEnter={() => onHover(line.id)}
-              onClick={() => onPick(line.id)}
+              onClick={() => { onPick(line.id); setOpen(false); }}
               className={cx("flex min-w-[176px] flex-none cursor-pointer flex-col justify-end gap-1.5 rounded-md px-3 pt-1.5 pb-1.5 transition hover:bg-tint", focusLineId === line.id && "bg-tint")}
             >
               <div className="whitespace-nowrap text-[11px] text-ink-soft"><b className="font-normal text-ink">{line.phase}</b> {line.short}</div>

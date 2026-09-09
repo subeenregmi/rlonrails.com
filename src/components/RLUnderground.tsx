@@ -280,7 +280,7 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
   }, [selected, progress]);
 
   return (
-    <div className={cx("grid h-full grid-rows-[1fr_auto] bg-paper text-ink", intro && (lite ? "intro-lite" : "intro"), (selected || pinnedLine) && "panel-open")}>
+    <div className={cx("relative grid h-full grid-rows-[1fr_auto] bg-paper text-ink", intro && (lite ? "intro-lite" : "intro"), (selected || pinnedLine) && "panel-open")}>
       <main className="relative min-h-0 overflow-hidden">
         <section className="map-wrap relative h-full overflow-hidden">
           <FloatingBar

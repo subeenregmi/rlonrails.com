@@ -127,6 +127,32 @@ body::before {
 }
 .drag-shield {
   cursor: grabbing;
+  touch-action: none;
+}
+/* Chrome reads touch-action across every finger in a gesture, so a pinch that
+   lands one finger on an overlay and one on the map would zoom the page. The
+   overlays that never scroll opt out of browser gestures too; the menu's
+   scrolling panel is left alone. */
+.bar-pill,
+.mm-frame {
+  touch-action: none;
+}
+/* Off a landscape phone the pill is always open, so the reveal is a plain
+   pass-through column and the roundel is decoration, not a button. */
+.bar-reveal {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-width: 0;
+}
+.bar-rest {
+  min-width: 0;
+  overflow: hidden;
+}
+.bar-badge {
+  pointer-events: none;
+}
+.strip-handle {
+  display: none;
 }
 /* A pan begun on the (unselectable) map would still paint a selection across
    the panel beside it, so the whole page stops selecting for the drag. */
@@ -698,6 +724,100 @@ body.map-dragging {
   }
 }
 
+/*
+ * Landscape phones: barely 400px of height, and the pill and the journey strip
+ * were eating a third of it. The pill folds down to the roundel until it is
+ * tapped, and the strip leaves the layout entirely — it becomes a drawer over
+ * the map with a handle riding on its top edge — so the map gets the screen.
+ * Both fold with CSS alone, so a landscape phone never paints the open state
+ * first and snaps shut after hydration.
+ */
+@media (orientation: landscape) and (max-height: 540px) {
+  /* Folded, the pill is exactly the roundel and its 8px ring of blue: the gap
+     and the wider right padding are part of what slides away, or the circle
+     comes out lopsided. */
+  .bar-pill {
+    gap: 0;
+    padding-right: 0.5rem;
+    transition:
+      gap 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+      padding-right 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .bar-reveal {
+    grid-template-columns: 0fr;
+    transition: grid-template-columns 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .bar-rest {
+    opacity: 0;
+    transition: opacity 0.18s ease;
+  }
+  .bar-badge {
+    cursor: pointer;
+    pointer-events: auto;
+  }
+  .bar-open .bar-pill {
+    gap: 0.625rem;
+    padding-right: 0.625rem;
+  }
+  .bar-open .bar-reveal {
+    grid-template-columns: 1fr;
+  }
+  .bar-open .bar-rest {
+    opacity: 1;
+    transition: opacity 0.18s ease 0.1s;
+  }
+
+  .journey-strip {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 25;
+    transform: translateY(100%);
+    transition: transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.16);
+  }
+  .journey-strip.strip-open {
+    transform: translateY(0);
+  }
+  .strip-handle {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    display: flex;
+    height: 22px;
+    width: 56px;
+    translate: -50% 0;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--rule);
+    border-bottom: 0;
+    border-radius: 11px 11px 0 0;
+    background: var(--surface);
+    color: var(--ink-soft);
+    box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.12);
+    /* Clear of the home indicator while the drawer is shut. */
+    margin-bottom: var(--safe-bottom);
+    transition: margin-bottom 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .strip-open .strip-handle {
+    margin-bottom: 0;
+  }
+  .strip-handle svg {
+    transition: transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .strip-open .strip-handle svg {
+    transform: rotate(180deg);
+  }
+}
+
+/* Unfolded, the pill matches the gap its own breakpoint would have given it. */
+@media (orientation: landscape) and (max-height: 540px) and (min-width: 640px) {
+  .bar-open .bar-pill {
+    gap: 0.875rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .intro,
   .intro *,
@@ -724,7 +844,13 @@ body.map-dragging {
   .mm-frame,
   .map-wrap,
   .terminus,
-  .terminus-stub {
+  .terminus-stub,
+  .bar-pill,
+  .bar-reveal,
+  .bar-rest,
+  .journey-strip,
+  .strip-handle,
+  .strip-handle svg {
     transition: none;
   }
 }
