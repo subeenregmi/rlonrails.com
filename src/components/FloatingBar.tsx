@@ -104,10 +104,9 @@ export function FloatingBar(props: FloatingBarProps) {
                     <div className="text-[12px] text-ink-soft" title={`${p.routeRead} of ${p.routeTotal} on your route · ${p.read} of ${p.total} explored`}>
                       {p.routeTotal > 0 ? `${p.routeRead} / ${p.routeTotal}` : `${p.read} / ${p.total}`}
                     </div>
-                    <div className="col-start-2 col-end-4 h-1 overflow-hidden rounded-full bg-bar">
-                      <div className="h-full rounded-full opacity-40" style={{ width: `${(100 * p.read) / p.total}%`, background: colour }}>
-                        <div className="h-full rounded-full" style={{ width: `${p.read > 0 ? (100 * p.routeRead) / p.read : 0}%`, background: colour }} />
-                      </div>
+                    <div className="relative col-start-2 col-end-4 h-1 overflow-hidden rounded-full bg-bar">
+                      <div className="absolute inset-y-0 left-0 rounded-full opacity-35" style={{ width: `${(100 * p.read) / p.total}%`, background: colour }} />
+                      <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(100 * p.routeRead) / p.total}%`, background: colour }} />
                     </div>
                   </li>
                 );

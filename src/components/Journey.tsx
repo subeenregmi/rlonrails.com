@@ -102,8 +102,9 @@ export function JourneyContent({ progress, onClose }: { progress: Progress; onCl
                 <div className="text-[12.5px] text-ink-soft" title={`${p.routeRead} of ${p.routeTotal} on your route`}>
                   {p.routeTotal > 0 ? `${p.routeRead} / ${p.routeTotal}` : `${p.read} / ${p.total}`}
                 </div>
-                <div className="col-start-2 col-end-4 h-1 overflow-hidden rounded-full bg-bar">
-                  <div className="h-full rounded-full" style={{ width: `${(100 * p.read) / p.total}%`, background: colour, opacity: 0.4 }} />
+                <div className="relative col-start-2 col-end-4 h-1 overflow-hidden rounded-full bg-bar">
+                  <div className="absolute inset-y-0 left-0 rounded-full opacity-35" style={{ width: `${(100 * p.read) / p.total}%`, background: colour }} />
+                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(100 * p.routeRead) / p.total}%`, background: colour }} />
                 </div>
               </li>
             );
