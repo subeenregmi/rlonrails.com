@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { Line, LogEntry, Resource, ResourceKind, Station } from "@/lib/curriculum";
 import {
   SKILLS, STATUSES, deliverables, emptyStation, isOnRoute, lineProgress, requirement, stationProgress, statusOf,
@@ -17,13 +18,22 @@ export interface Connection {
   read: boolean;
 }
 
-interface StationPanelProps {
+export interface PanelView {
   station: Station | null;
   line: Line | null;
-  progress: Progress;
   log: LogEntry[];
   connections: Connection[];
   missing: Station[];
+}
+
+interface Shown {
+  view: PanelView;
+  leaving: boolean;
+}
+
+interface StationPanelProps {
+  view: PanelView;
+  progress: Progress;
   saveError: boolean;
   onStatus: (status: Status) => void;
   onSkill: (skill: Skill) => void;
@@ -73,10 +83,14 @@ const sourceWord = (station: Station) =>
   station.resources.some((r) => r.kind === "book") ? "book" : station.resources.some((r) => r.kind === "course") ? "course" : "set";
 
 export function StationPanel(props: StationPanelProps) {
-  const { station, line, progress, log, connections, missing, saveError, onStatus, onSkill, onToggleDeliverable, onToggleResource, onSelect, onClose } = props;
+  const { view, progress, saveError, onStatus, onSkill, onToggleDeliverable, onToggleResource, onSelect, onClose } = props;
+  const open = Boolean(view.line);
+  const [shown, setShown] = useState<Shown | null>(open ? { view, leaving: false } : null);
+  if (open && view !== shown?.view) setShown({ view, leaving: false });
+  else if (!open && shown && !shown.leaving) setShown({ view: shown.view, leaving: true });
+  const { station, line, log, connections, missing } = shown?.view ?? view;
   const current = station ? stationProgress(progress, station.id) : emptyStation();
   const resources = progress.resources;
-  const open = Boolean(line);
   const colour = line ? TFL_COLOURS[line.tfl] : "#0019A8";
   const on = line ? textOn(line.tfl) : "#fff";
   const index = station && line ? line.stations.indexOf(station) : 0;
@@ -96,6 +110,7 @@ export function StationPanel(props: StationPanelProps) {
       className={cx("absolute inset-y-0 right-0 z-30 w-full overflow-x-hidden overflow-y-auto overscroll-contain border-l border-rule bg-surface pr-safe-right transition-transform duration-[380ms] ease-[cubic-bezier(.2,.8,.2,1)] sm:w-[calc(380px+var(--safe-right))]", open ? "translate-x-0" : "translate-x-full")}
       style={{ "--c": colour, "--on": on } as React.CSSProperties}
       aria-hidden={!open}
+      onTransitionEnd={(event) => { if (shown?.leaving && event.target === event.currentTarget && (event.propertyName === "translate" || event.propertyName === "transform")) setShown(null); }}
     >
       {line && (
         <div key={station?.id ?? line.id} className="panel-switch w-full pb-[calc(1.5rem+var(--safe-bottom))] sm:w-[380px]">

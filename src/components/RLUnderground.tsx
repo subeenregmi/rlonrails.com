@@ -11,7 +11,7 @@ import {
 import { cx } from "@/lib/cx";
 import { TFL_COLOURS } from "@/lib/tfl";
 import { JourneyStrip } from "./JourneyStrip";
-import { StationPanel, type Connection } from "./StationPanel";
+import { StationPanel, type Connection, type PanelView } from "./StationPanel";
 import { Toast, type ToastMessage } from "./Toast";
 import { Dialog, type DialogMessage } from "./Dialog";
 import { progressStore, saveProgress } from "@/lib/storage";
@@ -60,7 +60,7 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
   }, [toast]);
 
   const focusLineId = hoverLineId ?? pinnedLineId;
-  const selected = selectedId ? findStation(CURRICULUM, selectedId) : null;
+  const selected = useMemo(() => (selectedId ? findStation(CURRICULUM, selectedId) : null), [selectedId]);
   const pinnedLine = pinnedLineId ? findLine(CURRICULUM, pinnedLineId) ?? null : null;
   const progressByLine = useMemo(() => Object.fromEntries(CURRICULUM.lines.map((l) => [l.id, lineProgress(l, progress)])), [progress]);
   const sums = useMemo(() => totals(CURRICULUM, progress), [progress]);
@@ -279,6 +279,11 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
     });
   }, [selected, progress]);
 
+  const panelView: PanelView = useMemo(
+    () => ({ station: selected?.station ?? null, line: selected?.line ?? pinnedLine, log, connections, missing }),
+    [selected, pinnedLine, log, connections, missing],
+  );
+
   return (
     <div className={cx("relative grid h-full grid-rows-[1fr_auto] bg-paper text-ink", intro && (lite ? "intro-lite" : "intro"), (selected || pinnedLine) && "panel-open")}>
       <main className="relative min-h-0 overflow-hidden">
@@ -319,12 +324,8 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
           />
         </section>
         <StationPanel
-          station={selected?.station ?? null}
-          line={selected?.line ?? pinnedLine}
+          view={panelView}
           progress={progress}
-          log={log}
-          connections={connections}
-          missing={missing}
           saveError={saveError}
           onStatus={(status) => selected && setStatus(selected.station, selected.line, status)}
           onSkill={(skill) => selected && toggleSkill(selected.station, selected.line, skill)}
