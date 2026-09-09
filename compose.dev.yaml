@@ -1,0 +1,15 @@
+# Deployment of the `development` branch to dev.rlonrails.com.
+#
+# An explicit project name keeps this stack from colliding with the
+# production one (compose.prod.yaml), which is deployed from a separate
+# checkout of this repository.
+name: rlonrails-dev
+
+services:
+  rlonrails:
+    build:
+      context: .
+    ports:
+      - "8091:3000"
+    command: ["npm", "run", "start"]
+    restart: always
