@@ -571,7 +571,15 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   const pinchRef = useRef<{ dist: number; mid: Pt } | null>(null);
   const rectRef = useRef<DOMRect | null>(null);
   const shieldRef = useRef<HTMLDivElement>(null);
-  const setDragging = useCallback((on: boolean) => { shieldRef.current?.classList.toggle("hidden", !on); }, []);
+  const setDragging = useCallback((on: boolean) => {
+    shieldRef.current?.classList.toggle("hidden", !on);
+    // The map is unselectable, but a drag that starts on it still extends the
+    // browser's selection into the panel beside it: freeze selection for the
+    // pan, and drop whatever the press was about to drag out of.
+    document.body.classList.toggle("map-dragging", on);
+    if (on) window.getSelection()?.removeAllRanges();
+  }, []);
+  useEffect(() => () => document.body.classList.remove("map-dragging"), []);
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null);
   const [animating, setAnimating] = useState<Map<string, TrackPhase>>(() => new Map());
   const prevReadRef = useRef<Set<string> | null>(null);
