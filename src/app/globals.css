@@ -160,14 +160,6 @@ body.map-dragging {
   user-select: none;
   -webkit-user-select: none;
 }
-.map-svg.moving {
-  will-change: transform;
-}
-@media (pointer: coarse) {
-  .map-svg {
-    will-change: transform;
-  }
-}
 .map-svg.moving .lamp-rays,
 .map-svg.moving .station.here .halo,
 .map-svg.moving .you-are-here-bob,

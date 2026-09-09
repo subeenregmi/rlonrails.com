@@ -46,16 +46,13 @@ const worldOf = (polygon: Pt[]): Bounds => {
   const minY = Math.min(...ys) - WORLD_PAD;
   return { x: minX, y: minY, w: Math.max(...xs) + WORLD_PAD - minX, h: Math.max(...ys) + WORLD_PAD - minY };
 };
-const COMMIT_DELAY = 160;
-const EAGER_COMMIT_MS = 60;
+const SETTLE_DELAY = 160;
 const FLICK_WINDOW = 100;
 const FLICK_STALE = 60;
 const FLICK_MIN_SPEED = 0.08;
 const GLIDE_FRICTION = 0.93;
 const GLIDE_MIN_SPEED = 0.02;
 const GLIDE_MAX_SPEED = 6;
-const EDGE_FRACTION = 0.65;
-const ZOOM_DRIFT = 1.5;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const clampView = (v: View, world: Bounds) => {
   const maxX = world.x + world.w;
@@ -126,8 +123,6 @@ function Shape({ station, className, r }: { station: Station; className: string;
   if (station.tag === "exercise") return <rect className={className} x={-r} y={-r} width={r * 2} height={r * 2} rx={3} pathLength={100} />;
   return <circle className={className} r={r} pathLength={100} />;
 }
-
-const OVERSCAN = 2.2;
 
 const WAVE_GROUPS = 0;
 const ZONE_TINTS = ["#e9e0ec", "#dfe8ee", "#e3ecdd", "#f0e7d3"];
@@ -559,10 +554,9 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   const svgRef = useRef<SVGSVGElement>(null);
   const animLayerRef = useRef<SVGGElement>(null);
   const stationRefs = useRef(new Map<string, SVGGElement>());
-  const committed = useRef<View>({ x: MAP_BOUNDS.x, y: MAP_BOUNDS.y, w: MAP_BOUNDS.w, h: MAP_BOUNDS.h });
   const pending = useRef<View>({ x: MAP_BOUNDS.x, y: MAP_BOUNDS.y, w: MAP_BOUNDS.w, h: MAP_BOUNDS.h });
-  const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastCommit = useRef(0);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paintFrame = useRef<number | null>(null);
   const flightRef = useRef<number | null>(null);
   const listeners = useRef(new Set<CameraListener>());
   const dragRef = useRef<{ x: number; y: number; ox: number; oy: number; moved: boolean; target: Element | null; trail: Sample[] } | null>(null);
@@ -599,49 +593,40 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     return rect.width < 10 || rect.height < 10 ? 1.2 : rect.width / rect.height;
   }, [wrapRect]);
 
-  const commit = useCallback(() => {
+  // Use one camera representation throughout a gesture. Scaling an oversized
+  // SVG bitmap and periodically rebasing its viewBox changes raster scale and
+  // non-scaling strokes mid-zoom; dropping the compositor layer at rest adds
+  // another visible handoff. A viewport-sized SVG needs neither operation.
+  const paint = useCallback(() => {
+    paintFrame.current = null;
     const svg = svgRef.current;
     if (!svg) return;
-    const v = pending.current;
-    const c = committed.current;
-    svg.style.transform = "";
-    if (v.x === c.x && v.y === c.y && v.w === c.w && v.h === c.h) return;
-    committed.current = { ...v };
-    lastCommit.current = performance.now();
-    const pad = (OVERSCAN - 1) / 2;
-    svg.setAttribute("viewBox", `${v.x - v.w * pad} ${v.y - v.h * pad} ${v.w * OVERSCAN} ${v.h * OVERSCAN}`);
+    const v = { ...pending.current };
+    const viewBox = `${v.x} ${v.y} ${v.w} ${v.h}`;
+    if (svg.getAttribute("viewBox") !== viewBox) svg.setAttribute("viewBox", viewBox);
+    listeners.current.forEach((fn) => fn(v));
   }, []);
 
   const settle = useCallback(() => {
-    if (commitTimer.current) { clearTimeout(commitTimer.current); commitTimer.current = null; }
-    commit();
+    if (settleTimer.current !== null) { clearTimeout(settleTimer.current); settleTimer.current = null; }
+    if (paintFrame.current !== null) cancelAnimationFrame(paintFrame.current);
+    paint();
     svgRef.current?.classList.remove("moving");
-  }, [commit]);
+  }, [paint]);
 
-  const render = useCallback((commitSoon: boolean) => {
+  const render = useCallback((settleSoon: boolean) => {
     const svg = svgRef.current;
     if (!svg) return;
-    const c = committed.current;
-    const p = pending.current;
-    if (!flightRef.current) clampView(p, worldRef.current);
-    const W = wrapRect().width;
-    const k = c.w / p.w;
-    const tx = ((c.x - p.x) * W) / p.w;
-    const ty = ((c.y - p.y) * W) / p.w;
+    if (!flightRef.current) clampView(pending.current, worldRef.current);
     svg.classList.add("moving");
-    svg.style.transform = `translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) scale(${k.toFixed(5)})`;
-    listeners.current.forEach((fn) => fn(p));
-    const pad = (OVERSCAN - 1) / 2;
-    const limitX = c.w * pad * EDGE_FRACTION;
-    const limitY = c.h * pad * EDGE_FRACTION;
-    const nearEdge = c.x - p.x > limitX || p.x + p.w - (c.x + c.w) > limitX || c.y - p.y > limitY || p.y + p.h - (c.y + c.h) > limitY;
-    const zoomDrift = k > ZOOM_DRIFT || k < 1 / ZOOM_DRIFT;
-    if ((nearEdge || zoomDrift) && performance.now() - lastCommit.current > EAGER_COMMIT_MS) commit();
-    if (commitSoon) {
-      if (commitTimer.current) clearTimeout(commitTimer.current);
-      commitTimer.current = setTimeout(settle, COMMIT_DELAY);
+    // Wheel/pointer events can arrive faster than the display refresh rate.
+    // Publish the view to the SVG, trains and minimap together when it paints.
+    if (paintFrame.current === null) paintFrame.current = requestAnimationFrame(paint);
+    if (settleSoon) {
+      if (settleTimer.current !== null) clearTimeout(settleTimer.current);
+      settleTimer.current = setTimeout(settle, SETTLE_DELAY);
     }
-  }, [commit, settle, wrapRect]);
+  }, [paint, settle]);
 
   const stopGlide = useCallback(() => {
     if (!glideRef.current) return false;
@@ -686,6 +671,7 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
 
   const flyTo = useCallback((cx: number, cy: number, w: number, duration = 850) => {
     stopGlide();
+    if (settleTimer.current !== null) { clearTimeout(settleTimer.current); settleTimer.current = null; }
     if (flightRef.current) cancelAnimationFrame(flightRef.current);
     const v = pending.current;
     const from = { cx: v.x + v.w / 2, cy: v.y + v.h / 2, w: v.w };
@@ -787,6 +773,9 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     return () => {
       observer.disconnect();
       stopGlide();
+      if (flightRef.current !== null) { cancelAnimationFrame(flightRef.current); flightRef.current = null; }
+      if (paintFrame.current !== null) { cancelAnimationFrame(paintFrame.current); paintFrame.current = null; }
+      if (settleTimer.current !== null) { clearTimeout(settleTimer.current); settleTimer.current = null; }
       window.removeEventListener("scroll", measureWrap);
       window.visualViewport?.removeEventListener("resize", measureWrap);
     };
@@ -1044,12 +1033,11 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   };
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0) return;
-    // settle(), not commit(): a press that only stops the motion never reaches
-    // onPointerUp's settle path, and would leave .moving (and its paused
-    // ambient animations) stuck on the map.
-    if (stopGlide()) settle();
-    if (flightRef.current) { cancelAnimationFrame(flightRef.current); flightRef.current = null; settle(); }
-    if (commitTimer.current) { clearTimeout(commitTimer.current); commitTimer.current = null; }
+    stopGlide();
+    if (flightRef.current) { cancelAnimationFrame(flightRef.current); flightRef.current = null; }
+    // A click can interrupt the wheel's settling timer too. Flush that view
+    // and resume ambient animations even when this press never becomes a pan.
+    settle();
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     e.currentTarget.setPointerCapture(e.pointerId);
     if (pointersRef.current.size === 2) {
@@ -1131,8 +1119,7 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     <>
       <svg
         ref={svgRef}
-        className="map-svg absolute"
-        style={{ left: `${-100 * (OVERSCAN - 1) / 2}%`, top: `${-100 * (OVERSCAN - 1) / 2}%`, width: `${100 * OVERSCAN}%`, height: `${100 * OVERSCAN}%`, transformOrigin: `${(100 * (OVERSCAN - 1)) / 2 / OVERSCAN}% ${(100 * (OVERSCAN - 1)) / 2 / OVERSCAN}%` }}
+        className="map-svg absolute inset-0 h-full w-full"
         xmlns={SVG_NS}
         role="img"
         aria-label="RL curriculum tube map"

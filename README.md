@@ -2,6 +2,18 @@
 
 ![RL on Rails](docs/screenshot.png)
 
+## Browser regression tests
+
+```sh
+npx playwright install chromium webkit
+npm run test:browser
+```
+
+The tests build and serve the production app, seed 60 read stations in an
+isolated browser profile, and check zoom anchoring, clicks during zoom, panning,
+and touch pinching. This keeps saved progress and build mode consistent when
+comparing local rendering with the development site.
+
 ## Deployment
 
 Local
