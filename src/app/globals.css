@@ -483,22 +483,24 @@ body.map-dragging {
 .link {
   fill: none;
   stroke: var(--ink-faint);
-  stroke-width: 2;
-  stroke-dasharray: 5 6;
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1.7px;
+  stroke-dasharray: 4.3px 5.2px;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.3s, stroke-width 0.3s, visibility 0s 0.3s;
+  transition: opacity 0.12s, stroke-width 0.3s, visibility 0s 0.12s;
   pointer-events: none;
+  animation: march 1.2s linear infinite paused;
 }
 .link.lit {
-  stroke-width: 3;
+  stroke-width: 2.6px;
 }
 .link.active {
   opacity: 1;
   visibility: visible;
-  transition: opacity 0.3s, stroke-width 0.3s, visibility 0s;
-  stroke-width: 3.5;
-  animation: march 1.2s linear infinite;
+  transition: opacity 0.3s 0.12s, stroke-width 0.3s, visibility 0s;
+  stroke-width: 3px;
+  animation-play-state: running;
 }
 
 .car-body {
@@ -701,7 +703,7 @@ body.map-dragging {
   }
   .you-are-here-bob,
   .track-next,
-  .link.active,
+  .link,
   .wave-mark {
     animation: none;
   }
@@ -833,7 +835,7 @@ body.map-dragging {
   .station.here .halo,
   .lamp.lit .lamp-rays,
   .track-next,
-  .link.active,
+  .link,
   .progress-fill.rainbow,
   .wave-mark {
     animation: none;
@@ -969,7 +971,7 @@ body.map-dragging {
 }
 @keyframes march {
   to {
-    stroke-dashoffset: -22;
+    stroke-dashoffset: -19px;
   }
 }
 @keyframes flicker {
