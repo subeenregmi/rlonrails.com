@@ -22,6 +22,7 @@ import { TubeMap, type TubeMapHandle } from "./TubeMap";
 
 
 export const trainCountFor = (readStations: number) => (readStations > 0 ? Math.min(22, 2 + Math.floor(readStations / 4)) : 0);
+const LITE_INTRO_MS = 1400;
 
 function Tracker({ initialProgress }: { initialProgress: Progress }) {
   const layout = useMemo(() => computeLayout(CURRICULUM), []);
@@ -39,13 +40,18 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
   const closeDialog = useCallback(() => setDialog(null), []);
   const [saveError, setSaveError] = useState(false);
   const [intro, setIntro] = useState(true);
+  // Touch devices get a lighter intro: one fade and a short flight instead of
+  // drawing every line and station in. Each of those six hundred animations
+  // changes SVG geometry, so every frame re-lays-out and repaints a map far
+  // larger than a phone screen — five seconds at a dozen frames a second.
+  const lite = useMemo(() => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches, []);
   const mapRef = useRef<TubeMapHandle>(null);
   const colours = useMemo(() => Object.fromEntries(CURRICULUM.lines.map((l) => [l.id, TFL_COLOURS[l.tfl]])), []);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIntro(false), schedule.total + 1500);
+    const timer = setTimeout(() => setIntro(false), lite ? LITE_INTRO_MS : schedule.total + 1500);
     return () => clearTimeout(timer);
-  }, [schedule.total]);
+  }, [schedule.total, lite]);
 
   useEffect(() => {
     if (!toast) return;
@@ -274,8 +280,8 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
   }, [selected, progress]);
 
   return (
-    <div className={cx("grid h-full grid-rows-[1fr_auto] bg-paper text-ink", intro && "intro", (selected || pinnedLine) && "panel-open")}>
-      <main className="relative min-h-0">
+    <div className={cx("grid h-full grid-rows-[1fr_auto] bg-paper text-ink", intro && (lite ? "intro-lite" : "intro"), (selected || pinnedLine) && "panel-open")}>
+      <main className="relative min-h-0 overflow-hidden">
         <section className="map-wrap relative h-full overflow-hidden">
           <FloatingBar
             totals={sums}
@@ -306,7 +312,8 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
             selectedId={selectedId}
             focusLineId={focusLineId}
             trainCount={trainCount}
-            intro={intro}
+            intro={intro && !lite}
+            lite={lite}
             onSelect={(id) => select(id)}
             onPinLine={(id) => { setPinnedLineId(id); if (id) mapRef.current?.flyToLine(id); }}
           />
@@ -336,7 +343,11 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
 }
 
 export function RLUnderground() {
-  const stored = useSyncExternalStore(progressStore.subscribe, progressStore.getSnapshot, progressStore.getServerSnapshot);
+  // Only whether storage has been read matters here: the tracker owns the
+  // progress once it has it. Subscribing to the value itself re-rendered the
+  // whole tree a second time on every save.
+  const loaded = useSyncExternalStore(progressStore.subscribe, () => true, () => false);
+  const stored = loaded ? progressStore.getSnapshot() : null;
   if (!stored) {
     return (
       <div className="grid h-full grid-rows-[1fr_auto]">

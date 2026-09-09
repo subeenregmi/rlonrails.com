@@ -363,15 +363,25 @@ body::before {
   animation-delay: calc(var(--delay) + 0.3s);
 }
 .intro .pill,
-.intro .trains-layer,
 .intro .you-are-here {
   animation: fade-painted 0.6s ease both;
   animation-delay: var(--delay, 0ms);
 }
 .intro .floating-bar,
 .intro .journey-strip,
-.intro .mm-frame {
+.intro .mm-frame,
+.intro-lite .floating-bar,
+.intro-lite .journey-strip,
+.intro-lite .mm-frame {
   animation: fade 0.6s ease both;
+}
+/*
+ * The touch-device intro: the finished map fades in as one layer while the
+ * camera flies to the start. Opacity on the composited map costs nothing per
+ * frame, where the drawn intro repaints the whole map on every one.
+ */
+.intro-lite .map-svg {
+  animation: fade 0.7s ease both;
 }
 .intro .station.next .halo {
   animation-delay: var(--delay);
@@ -658,8 +668,10 @@ body::before {
   .wave-mark {
     animation: none;
   }
-  .trains > g:nth-of-type(n + 7) {
-    display: none;
+  /* Picking a line dims a thousand elements at once; fading them repaints the
+     whole map for every frame of the fade. Snap instead. */
+  .dimmable {
+    transition: none;
   }
 }
 
@@ -680,7 +692,9 @@ body::before {
 
 @media (prefers-reduced-motion: reduce) {
   .intro,
-  .intro * {
+  .intro *,
+  .intro-lite,
+  .intro-lite * {
     animation-duration: 1ms !important;
     animation-delay: 0ms !important;
   }

@@ -7,12 +7,25 @@ import type { Interval } from "@/lib/progress";
 import type { View } from "./Minimap";
 import type { CameraListener } from "./TubeMap";
 
+/*
+ * The trains are drawn on a canvas laid over the map rather than as SVG
+ * elements inside it. Anything that moves inside the map SVG makes the browser
+ * lay out, re-record and re-rasterise the whole map — thousands of paths and
+ * stroked labels, at 2.2x the viewport, every frame. A viewport-sized canvas
+ * redrawn from the camera view costs the same few dozen rounded rectangles per
+ * frame whatever the map looks like, and never touches the DOM.
+ */
+
 interface TrainsProps {
   layout: MapLayout;
   intervals: Record<string, Interval[]>;
   count: number;
   focusLineId: string | null;
   subscribe: (listener: CameraListener) => () => void;
+  /** Water the trains disappear under, as an SVG path in map units. */
+  river: string;
+  /** How long after mounting the trains fade in; the intro's line drawing runs first. */
+  revealAfterMs: number;
 }
 
 type Phase = "cruise" | "approach" | "dwell" | "depart";
@@ -40,6 +53,8 @@ interface Train {
   reverseAfterStop: boolean;
   lastStop: number | null;
   target: { pos: number; stop: boolean } | null;
+  /** Current dimming, eased towards 1 (on the focused line or no focus) or DIM. */
+  alpha: number;
 }
 
 interface Route {
@@ -47,23 +62,6 @@ interface Route {
   wraps: boolean;
   length: number;
   stations: number[];
-}
-
-interface CarParts {
-  el: SVGGElement;
-  inner: SVGGElement;
-  body: SVGElement;
-  band: SVGElement;
-  windows: SVGElement[];
-  headLamp: SVGElement;
-  tailLamp: SVGElement;
-}
-
-interface TrainParts {
-  visible: boolean;
-  livery: string | null;
-  dim: string | null;
-  cars: CarParts[];
 }
 
 const LIVERIES: Livery[] = [
@@ -90,12 +88,18 @@ const CAR = 26;
 const HALF_CAR = CAR / 2;
 const GAP = 3;
 const SPACING = CAR + GAP;
-const MAX_CARS = 5;
 const CAR_WEIGHTS = [0, 0, 2, 4, 4, 2];
 const BRAKE_DISTANCE = 90;
 const LAUNCH_DISTANCE = 130;
 const CREEP = 0.14;
 const CULL_MARGIN = 60;
+const DIM = 0.12;
+const DIM_SECONDS = 0.35;
+const REVEAL_MS = 600;
+const MAX_DPR = 2;
+const VISIBILITY_CHECK_FRAMES = 30;
+const HEAD_LAMP = "#FFF3C4";
+const TAIL_LAMP = "#FF4D4D";
 
 const trainLength = (cars: number) => cars * CAR + (cars - 1) * GAP;
 const tailOffset = (cars: number) => trainLength(cars) - HALF_CAR;
@@ -153,68 +157,49 @@ const easeStop = (remaining: number, cars: number) => Math.min(1, Math.max(CREEP
 const easeLaunch = (travelled: number) => Math.min(1, Math.max(CREEP, Math.sqrt(Math.max(0, travelled) / LAUNCH_DISTANCE)));
 const wrapPos = (route: Route, s: number) => (route.wraps ? ((s % route.length) + route.length) % route.length : Math.min(Math.max(s, 0), route.length));
 
-const partsCache = new WeakMap<SVGGElement, TrainParts>();
-
-function partsOf(group: SVGGElement): TrainParts {
-  let parts = partsCache.get(group);
-  if (parts) return parts;
-  const cars = [...group.querySelectorAll<SVGGElement>(".car")].map((el) => {
-    const lamps = el.querySelectorAll<SVGElement>(".car-lamp");
-    return {
-      el,
-      inner: el.firstElementChild as SVGGElement,
-      body: el.querySelector<SVGElement>(".car-body")!,
-      band: el.querySelector<SVGElement>(".car-band")!,
-      windows: [...el.querySelectorAll<SVGElement>(".car-window")],
-      headLamp: lamps[0],
-      tailLamp: lamps[1],
-    };
-  });
-  parts = { visible: false, livery: null, dim: null, cars };
-  partsCache.set(group, parts);
-  return parts;
-}
-
-const show = (el: SVGElement, visible: boolean) => {
-  const value = visible ? "visible" : "hidden";
-  if (el.getAttribute("visibility") !== value) el.setAttribute("visibility", value);
-};
-
-function showTrain(group: SVGGElement, parts: TrainParts, visible: boolean) {
-  if (parts.visible === visible) return;
-  parts.visible = visible;
-  group.setAttribute("visibility", visible ? "visible" : "hidden");
-}
-
-function dimTrain(group: SVGGElement, parts: TrainParts, dim: string | null) {
-  if (parts.dim === dim) return;
-  parts.dim = dim;
-  if (dim === null) group.removeAttribute("data-dim");
-  else group.setAttribute("data-dim", dim);
-}
-
-function paintCars(parts: TrainParts, livery: Livery) {
-  if (parts.livery === livery.name) return;
-  parts.livery = livery.name;
-  for (const car of parts.cars) {
-    car.body.setAttribute("fill", livery.body);
-    car.body.setAttribute("stroke", livery.edge);
-    car.band.setAttribute("fill", livery.band);
-    for (const w of car.windows) w.setAttribute("fill", livery.windows);
-  }
-}
-
 const inView = (view: View | null, x: number, y: number, margin: number) =>
   !view || (x >= view.x - margin && x <= view.x + view.w + margin && y >= view.y - margin && y <= view.y + view.h + margin);
 
-export const Trains = memo(function Trains({ layout, intervals, count, focusLineId, subscribe }: TrainsProps) {
-  const groupRefs = useRef<Array<SVGGElement | null>>([]);
+const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") { ctx.roundRect(x, y, w, h, r); return; }
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+};
+
+/** One carriage in its own frame: x along the track, the body centred on the origin. */
+function drawCar(ctx: CanvasRenderingContext2D, livery: Livery, head: boolean, tail: boolean) {
+  roundRect(ctx, -HALF_CAR, -7.5, CAR, 15, 3.5);
+  ctx.fillStyle = livery.body;
+  ctx.fill();
+  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = livery.edge;
+  ctx.stroke();
+  roundRect(ctx, -HALF_CAR + 1, 2.2, CAR - 2, 2.6, 1.3);
+  ctx.fillStyle = livery.band;
+  ctx.fill();
+  ctx.fillStyle = livery.windows;
+  for (const wx of [-9.5, -2.3, 4.9]) { roundRect(ctx, wx, -4.6, 4.6, 4.2, 1); ctx.fill(); }
+  if (head) { ctx.beginPath(); ctx.arc(HALF_CAR - 1.4, 0, 1.7, 0, Math.PI * 2); ctx.fillStyle = HEAD_LAMP; ctx.fill(); }
+  if (tail) { ctx.beginPath(); ctx.arc(-HALF_CAR + 1.4, 0, 1.3, 0, Math.PI * 2); ctx.fillStyle = TAIL_LAMP; ctx.fill(); }
+}
+
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+export const Trains = memo(function Trains({ layout, intervals, count, focusLineId, subscribe, river, revealAfterMs }: TrainsProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const trainsRef = useRef<Train[]>([]);
   const routesRef = useRef<Record<string, Route>>({});
   const liveriesRef = useRef<Livery[]>([]);
   const liveryIndex = useRef(0);
   const viewRef = useRef<View | null>(null);
   const focusRef = useRef<string | null>(null);
+  const sizeRef = useRef({ w: 0, h: 0, dpr: 1 });
+  const revealRef = useRef(revealAfterMs);
 
   useEffect(() => subscribe((view) => { viewRef.current = view; }), [subscribe]);
   useEffect(() => { focusRef.current = focusLineId; }, [focusLineId]);
@@ -267,27 +252,78 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
         reverseAfterStop: false,
         lastStop: from,
         target: null,
+        alpha: 1,
       });
     }
     trainsRef.current = kept;
   }, [intervals, count, layout]);
 
+  // Keep the bitmap the size of the canvas box, at a capped pixel ratio: the
+  // carriages are a few pixels tall, and a 3x bitmap costs more to clear than
+  // it adds.
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const fit = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      sizeRef.current = { w, h, dpr };
+      canvas.width = Math.max(1, Math.round(w * dpr));
+      canvas.height = Math.max(1, Math.round(h * dpr));
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const water = river ? new Path2D(river) : null;
+    const revealAt = performance.now() + (reducedMotion() ? 0 : revealRef.current);
     let last = performance.now();
     let frame = 0;
+    let frames = 0;
+    let shown = true;
     const step = (now: number) => {
+      frame = requestAnimationFrame(step);
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
+      // The map is hidden under the station panel on phones; there is nothing
+      // to draw and no point moving the trains underneath it.
+      if (frames++ % VISIBILITY_CHECK_FRAMES === 0) shown = getComputedStyle(canvas).visibility !== "hidden";
+      if (!shown) return;
       const view = viewRef.current;
       const focus = focusRef.current;
-      trainsRef.current.forEach((train, i) => {
-        const el = groupRefs.current[i];
+      const { w, dpr } = sizeRef.current;
+      if (!view || w === 0) return;
+      const reveal = Math.min(1, Math.max(0, (now - revealAt) / REVEAL_MS));
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (reveal === 0) return;
+      // Map units to canvas pixels, then everything below is in map units.
+      const k = (w / view.w) * dpr;
+      ctx.setTransform(k, 0, 0, k, -view.x * k, -view.y * k);
+      ctx.save();
+      if (water) {
+        const clip = new Path2D();
+        clip.rect(view.x - CULL_MARGIN * 4, view.y - CULL_MARGIN * 4, view.w + CULL_MARGIN * 8, view.h + CULL_MARGIN * 8);
+        clip.addPath(water);
+        ctx.clip(clip, "evenodd");
+      }
+
+      trainsRef.current.forEach((train) => {
         const route = routesRef.current[train.lineId];
         const line = layout.lines[train.lineId];
-        if (!el) return;
-        const parts = partsOf(el);
-        dimTrain(el, parts, focus ? String(train.lineId !== focus) : null);
-        if (!route || !line) { showTrain(el, parts, false); return; }
+        if (!route || !line) return;
+        const wanted = focus && train.lineId !== focus ? DIM : 1;
+        const rate = Math.min(1, dt / DIM_SECONDS);
+        train.alpha += (wanted - train.alpha) * rate;
+        if (Math.abs(train.alpha - wanted) < 0.005) train.alpha = wanted;
         const tail = tailOffset(train.cars);
 
         if (train.phase === "dwell") {
@@ -300,7 +336,6 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
             train.stopAt = null;
             train.target = null;
           }
-          showTrain(el, parts, false);
           return;
         }
 
@@ -333,7 +368,6 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
             train.lastStop = plannedStop;
             train.reverseAfterStop = reverse;
             train.target = null;
-            showTrain(el, parts, false);
             return;
           }
           if (wrapping && plannedStop === null && (train.dir > 0 ? next >= iv[1] : next <= iv[0])) {
@@ -353,15 +387,13 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
         }
 
         const head = line.pointAt(wrapPos(route, train.s));
-        if (!inView(view, head.x, head.y, tail + CULL_MARGIN)) { showTrain(el, parts, false); return; }
+        if (!inView(view, head.x, head.y, tail + CULL_MARGIN)) return;
 
-        paintCars(parts, train.livery);
-        let anyVisible = false;
-        parts.cars.forEach((car, k) => {
-          if (k >= train.cars) { show(car.el, false); return; }
-          const raw = train.s - train.dir * k * SPACING;
+        ctx.globalAlpha = reveal * train.alpha;
+        for (let c = 0; c < train.cars; c++) {
+          const raw = train.s - train.dir * c * SPACING;
           const sk = wrapPos(route, raw);
-          if (!route.wraps && !containing(route, sk)) { show(car.el, false); return; }
+          if (!route.wraps && !containing(route, sk)) continue;
           let visible = CAR;
           let anchor = -HALF_CAR;
           if (train.phase === "approach" && train.stopAt !== null) {
@@ -371,48 +403,28 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
             anchor = HALF_CAR;
           }
           const sx = visible / CAR;
-          if (sx <= 0.01) { show(car.el, false); return; }
-          anyVisible = true;
+          if (sx <= 0.01) continue;
           const p = line.pointAt(sk);
           const t = line.tangentAt(sk);
-          const angle = (Math.atan2(t.y, t.x) * 180) / Math.PI + (train.dir < 0 ? 180 : 0);
-          show(car.el, true);
-          car.el.setAttribute("transform", `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${angle.toFixed(1)})`);
-          car.inner.setAttribute("transform", `translate(${anchor} 0) scale(${sx.toFixed(3)} 1) translate(${-anchor} 0)`);
-          show(car.headLamp, k === 0);
-          show(car.tailLamp, k === train.cars - 1);
-        });
-        showTrain(el, parts, anyVisible);
+          const angle = Math.atan2(t.y, t.x) + (train.dir < 0 ? Math.PI : 0);
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(angle);
+          // Carriages slide out of a station as they leave and into one as they
+          // arrive: squash along the track about the platform end.
+          ctx.translate(anchor, 0);
+          ctx.scale(sx, 1);
+          ctx.translate(-anchor, 0);
+          drawCar(ctx, train.livery, c === 0, c === train.cars - 1);
+          ctx.restore();
+        }
       });
-      for (let i = trainsRef.current.length; i < groupRefs.current.length; i++) {
-        const el = groupRefs.current[i];
-        if (el) showTrain(el, partsOf(el), false);
-      }
-      frame = requestAnimationFrame(step);
+      ctx.restore();
+      ctx.globalAlpha = 1;
     };
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [layout]);
+  }, [layout, river]);
 
-  return (
-    <g className="trains">
-      {Array.from({ length: count }, (_, i) => (
-        <g key={i} className="train dimmable" ref={(el) => { groupRefs.current[i] = el; }} visibility="hidden">
-          {Array.from({ length: MAX_CARS }, (_, k) => (
-            <g key={k} className="car" visibility="hidden">
-              <g>
-                <rect className="car-body" x={-HALF_CAR} y={-7.5} width={CAR} height={15} rx={3.5} strokeWidth={1.2} />
-                <rect className="car-band" x={-HALF_CAR + 1} y={2.2} width={CAR - 2} height={2.6} rx={1.3} />
-                <rect className="car-window" x={-9.5} y={-4.6} width={4.6} height={4.2} rx={1} />
-                <rect className="car-window" x={-2.3} y={-4.6} width={4.6} height={4.2} rx={1} />
-                <rect className="car-window" x={4.9} y={-4.6} width={4.6} height={4.2} rx={1} />
-                <circle className="car-lamp" cx={HALF_CAR - 1.4} cy={0} r={1.7} fill="#FFF3C4" />
-                <circle className="car-lamp" cx={-HALF_CAR + 1.4} cy={0} r={1.3} fill="#FF4D4D" />
-              </g>
-            </g>
-          ))}
-        </g>
-      ))}
-    </g>
-  );
+  return <canvas ref={canvasRef} className="trains-canvas pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true" />;
 });
