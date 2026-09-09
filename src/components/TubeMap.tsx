@@ -111,7 +111,7 @@ const lineOf = new Map<string, Line>();
 CURRICULUM.lines.forEach((line) => line.stations.forEach((s) => lineOf.set(s.id, line)));
 
 function Shape({ station, className, r }: { station: Station; className: string; r: number }) {
-  if (station.tag === "project") return <rect className={className} x={-r} y={-r} width={r * 2} height={r * 2} rx={3} pathLength={100} />;
+  if (station.tag === "exercise") return <rect className={className} x={-r} y={-r} width={r * 2} height={r * 2} rx={3} pathLength={100} />;
   return <circle className={className} r={r} pathLength={100} />;
 }
 
@@ -454,7 +454,7 @@ const Pill = memo(function Pill({ line, at, colour, delay, dim }: { line: Line; 
 
 const LAMP_GAP = 34;
 const BOOTH_GAP = 30;
-const hasBooth = (station: Station, index: number) => !station.landmark && (station.tag === "project" || index % 7 === 4);
+const hasBooth = (station: Station, index: number) => !station.landmark && (station.tag === "exercise" || index % 7 === 4);
 const RAYS = [150, 180, 210, -30, 0, 30]
   .map((deg) => {
     const a = (deg * Math.PI) / 180;
@@ -801,10 +801,10 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     el.classList.add("pop");
     el.querySelector(".core")?.addEventListener("animationend", () => el.classList.remove("pop"), { once: true });
     const r = layout.stations[station.id].interchange ? INTERCHANGE_RADIUS : STATION_RADIUS[station.tag];
-    const ripple = document.createElementNS(SVG_NS, station.tag === "project" ? "rect" : "circle");
+    const ripple = document.createElementNS(SVG_NS, station.tag === "exercise" ? "rect" : "circle");
     ripple.setAttribute("class", "ripple");
     ripple.style.setProperty("--c", colour);
-    if (station.tag === "project") {
+    if (station.tag === "exercise") {
       ripple.setAttribute("x", String(-r)); ripple.setAttribute("y", String(-r));
       ripple.setAttribute("width", String(r * 2)); ripple.setAttribute("height", String(r * 2)); ripple.setAttribute("rx", "3");
     } else {

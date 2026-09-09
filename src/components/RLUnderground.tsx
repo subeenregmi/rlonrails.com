@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { CURRICULUM, findLine, findResource, findStation, logResources, type Line, type Station } from "@/lib/curriculum";
 import { computeLayout, introSchedule } from "@/lib/geometry";
 import {
-  emptyProgress, isRead, isValidProgress, lineProgress, nextOnLine, nextStop, sanitizeProgress, stationProgress, statusFromResources, totals,
-  type Progress, type StationProgress, type Status,
+  SKILLS, emptyProgress, isRead, isValidProgress, lineProgress, missingPrereqs, nextOnLine, nextStop, sanitizeProgress, stationProgress,
+  suggestStatus, totals,
+  type Progress, type Skill, type StationProgress, type Status,
 } from "@/lib/progress";
 import { cx } from "@/lib/cx";
 import { TFL_COLOURS } from "@/lib/tfl";
@@ -93,6 +94,7 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
     const merged: Progress = {
       stations: { ...current.stations, [station.id]: { ...nextValue, updatedAt: new Date().toISOString() } },
       resources: { ...current.resources },
+      tracks: current.tracks,
     };
     for (const [id, done] of Object.entries(resources ?? {})) {
       if (done) merged.resources[id] = true;
@@ -111,21 +113,43 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
     readAt: status === "read" ? current.readAt ?? new Date().toISOString() : status === "unread" ? null : current.readAt,
   });
 
+  /** Status is what you claim about yourself. It never rewrites which resources you actually opened. */
   const setStatus = useCallback((station: Station, line: Line, status: Status) => {
     const current = stationProgress(progressRef.current, station.id);
-    const resources =
-      status === "read" ? Object.fromEntries(station.resources.map((r) => [r.id, true]))
-      : status === "unread" ? Object.fromEntries(station.resources.map((r) => [r.id, false]))
-      : undefined;
-    applyStation(station, line, withReadAt(current, status), resources);
+    applyStation(station, line, withReadAt(current, status));
   }, [applyStation]);
 
   const toggleResource = useCallback((station: Station, line: Line, resourceId: string) => {
     const current = progressRef.current;
     const done = !current.resources[resourceId];
-    const status = statusFromResources(station, { ...current.resources, [resourceId]: done });
+    const status = suggestStatus(station, current, { ...current.resources, [resourceId]: done }, stationProgress(current, station.id).deliverables);
     applyStation(station, line, withReadAt(stationProgress(current, station.id), status), { [resourceId]: done });
   }, [applyStation]);
+
+  const toggleDeliverable = useCallback((station: Station, line: Line, deliverableId: string) => {
+    const current = progressRef.current;
+    const existing = stationProgress(current, station.id);
+    const done = existing.deliverables.includes(deliverableId)
+      ? existing.deliverables.filter((id) => id !== deliverableId)
+      : [...existing.deliverables, deliverableId];
+    const status = suggestStatus(station, current, current.resources, done);
+    applyStation(station, line, { ...withReadAt(existing, status), deliverables: done });
+  }, [applyStation]);
+
+  const toggleSkill = useCallback((station: Station, line: Line, skill: Skill) => {
+    const existing = stationProgress(progressRef.current, station.id);
+    const skills = existing.skills.includes(skill) ? existing.skills.filter((s) => s !== skill) : [...existing.skills, skill];
+    applyStation(station, line, { ...existing, skills });
+  }, [applyStation]);
+
+  const toggleTrack = useCallback((lineId: string) => {
+    const current = progressRef.current;
+    const tracks = current.tracks.includes(lineId) ? current.tracks.filter((id) => id !== lineId) : [...current.tracks, lineId];
+    const merged: Progress = { ...current, tracks };
+    progressRef.current = merged;
+    setProgress(merged);
+    persist(merged);
+  }, [persist]);
 
   const select = useCallback((id: string | null, fly = false) => {
     setSelectedId(id);
@@ -179,11 +203,14 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
   const markAllRead = () => {
     const now = new Date().toISOString();
     const current = progressRef.current;
-    const all: Progress = { stations: {}, resources: {} };
+    const all: Progress = { stations: {}, resources: {}, tracks: CURRICULUM.lines.filter((l) => l.track).map((l) => l.id) };
     for (const line of CURRICULUM.lines) {
       for (const station of line.stations) {
         const existing = stationProgress(current, station.id);
-        all.stations[station.id] = { status: "read", readAt: existing.readAt ?? now, updatedAt: now };
+        all.stations[station.id] = {
+          status: "read", readAt: existing.readAt ?? now, updatedAt: now,
+          skills: [...SKILLS], deliverables: station.deliverables?.map((d) => d.id) ?? [],
+        };
         for (const resource of station.resources) all.resources[resource.id] = true;
       }
     }
@@ -231,6 +258,8 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [selected, select, setStatus, dialog, journeyOpen, closePanel]);
 
+  const missing = useMemo(() => (selected ? missingPrereqs(CURRICULUM, selected.station, progress) : []), [selected, progress]);
+
   const connections: Connection[] = useMemo(() => {
     if (!selected) return [];
     return CURRICULUM.links.flatMap(([a, b]) => {
@@ -255,6 +284,8 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
             onJourney={() => setJourneyOpen(true)}
             onHoverLine={setHoverLineId}
             onPickLine={pickLine}
+            tracks={progress.tracks}
+            onToggleTrack={toggleTrack}
             onExport={exportProgress}
             onImport={importProgress}
             onReset={resetProgress}
@@ -283,8 +314,11 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
           progress={progress}
           log={log}
           connections={connections}
+          missing={missing}
           saveError={saveError}
           onStatus={(status) => selected && setStatus(selected.station, selected.line, status)}
+          onSkill={(skill) => selected && toggleSkill(selected.station, selected.line, skill)}
+          onToggleDeliverable={(id) => selected && toggleDeliverable(selected.station, selected.line, id)}
           onToggleResource={(id) => { const owner = findResource(CURRICULUM, id); if (owner) toggleResource(owner.station, owner.line, id); }}
           onSelect={(id) => select(id, true)}
           onClose={closePanel}

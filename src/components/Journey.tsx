@@ -10,7 +10,7 @@ import { readDays, streaks } from "@/lib/activity";
 import { CURRICULUM } from "@/lib/curriculum";
 import { lineProgress, totals, type Progress } from "@/lib/progress";
 import { progressStore } from "@/lib/storage";
-import { TFL_COLOURS } from "@/lib/tfl";
+import { TFL_COLOURS, isLightLine } from "@/lib/tfl";
 
 const card = "rounded-2xl bg-surface shadow-[0_10px_30px_rgba(0,0,0,.08)]";
 
@@ -19,10 +19,10 @@ export function JourneyContent({ progress, onClose }: { progress: Progress; onCl
   const days = readDays(progress);
   const run = streaks(days);
   const stats = [
-    ["Stations read", `${sums.read} / ${sums.total}`],
-    ["Essential", `${sums.essentialRead} / ${sums.essentialTotal}`],
-    ["Projects", `${sums.projectRead} / ${sums.projectTotal}`],
-    ["Resources", `${sums.resourcesDone} / ${sums.resourcesTotal}`],
+    ["Route", `${sums.routeRead} / ${sums.routeTotal}`],
+    ["Core", `${sums.coreRead} / ${sums.coreTotal}`],
+    ["Exercises", `${sums.exerciseRead} / ${sums.exerciseTotal}`],
+    ["Implemented", `${sums.implemented}`],
     ["Current streak", `${run.current} ${run.current === 1 ? "day" : "days"}`],
     ["Longest streak", `${run.longest} ${run.longest === 1 ? "day" : "days"}`],
   ];
@@ -55,6 +55,38 @@ export function JourneyContent({ progress, onClose }: { progress: Progress; onCl
       </section>
 
       <section className={`p-4 sm:p-6 ${card}`}>
+        <h2 className="mb-1 text-[11px] uppercase tracking-[0.1em] text-ink-soft">The progression</h2>
+        <p className="mb-4 text-[12.5px] leading-snug text-ink-soft">
+          The default order through the map. Experimental practice runs alongside all of it rather than waiting until the end.
+        </p>
+        <ol className="flex flex-col gap-3">
+          {CURRICULUM.stages.map((stage, i) => {
+            const stageLines = stage.lines.map((id) => CURRICULUM.lines.find((l) => l.id === id)).filter((l): l is (typeof CURRICULUM.lines)[number] => Boolean(l));
+            const read = stageLines.reduce((n, l) => n + lineProgress(l, progress).routeRead, 0);
+            const total = stageLines.reduce((n, l) => n + lineProgress(l, progress).routeTotal, 0);
+            return (
+              <li key={stage.id} className="grid grid-cols-[28px_1fr] gap-x-3">
+                <span className="mt-px flex h-7 w-7 items-center justify-center rounded-full bg-tint text-[12.5px] text-ink-soft">{i + 1}</span>
+                <div className="min-w-0">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-[14.5px] leading-tight">{stage.title}</span>
+                    <span className="flex-none text-[12px] text-ink-faint">{read} / {total}</span>
+                  </div>
+                  <p className="mt-0.5 text-[12.5px] leading-snug text-ink-soft">{stage.content}</p>
+                  <p className="mt-1 text-[12.5px] leading-snug text-ink-faint">Ready to move on: {stage.evidence}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {stageLines.map((l) => (
+                      <span key={l.id} className="rounded-full px-2 py-px text-[11px] text-white" style={{ background: TFL_COLOURS[l.tfl], color: isLightLine(l.tfl) ? "#1a1a1a" : "#fff" }}>{l.short}</span>
+                    ))}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+
+      <section className={`p-4 sm:p-6 ${card}`}>
         <h2 className="mb-3 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Lines</h2>
         <ul className="flex flex-col gap-1">
           {CURRICULUM.lines.map((line) => {
@@ -67,9 +99,12 @@ export function JourneyContent({ progress, onClose }: { progress: Progress; onCl
                   <div className="truncate text-[13.5px] leading-tight">{line.name}</div>
                   <div className="text-[10.5px] text-ink-faint">{line.phase}</div>
                 </div>
-                <div className="text-[12.5px] text-ink-soft">{p.read} / {p.total}</div>
-                <div className="col-start-2 col-end-4 h-1 overflow-hidden rounded-full bg-bar">
-                  <div className="h-full rounded-full" style={{ width: `${(100 * p.read) / p.total}%`, background: colour }} />
+                <div className="text-[12.5px] text-ink-soft" title={`${p.routeRead} of ${p.routeTotal} on your route`}>
+                  {p.routeTotal > 0 ? `${p.routeRead} / ${p.routeTotal}` : `${p.read} / ${p.total}`}
+                </div>
+                <div className="relative col-start-2 col-end-4 h-1 overflow-hidden rounded-full bg-bar">
+                  <div className="absolute inset-y-0 left-0 rounded-full opacity-35" style={{ width: `${(100 * p.read) / p.total}%`, background: colour }} />
+                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(100 * p.routeRead) / p.total}%`, background: colour }} />
                 </div>
               </li>
             );

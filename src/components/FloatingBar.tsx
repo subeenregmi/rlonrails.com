@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Line } from "@/lib/curriculum";
 import type { LineProgress, Totals } from "@/lib/progress";
-import { TFL_COLOURS } from "@/lib/tfl";
+import { TFL_COLOURS, isLightLine } from "@/lib/tfl";
 import { cx } from "@/lib/cx";
 import { CheckIcon, ChevronDownIcon } from "@heroicons/react/16/solid";
 import { Roundel } from "./Roundel";
@@ -16,6 +16,8 @@ interface FloatingBarProps {
   progressByLine: Record<string, LineProgress>;
   focusLineId: string | null;
   days: Record<string, number>;
+  tracks: string[];
+  onToggleTrack: (lineId: string) => void;
   onJourney: () => void;
   onHoverLine: (id: string | null) => void;
   onPickLine: (id: string) => void;
@@ -28,7 +30,7 @@ interface FloatingBarProps {
 const tool = "rounded-full bg-tint px-3 py-1.5 text-[13px] text-ink transition hover:bg-tint-strong active:translate-y-px";
 
 export function FloatingBar(props: FloatingBarProps) {
-  const { totals, trainCount, lines, progressByLine, focusLineId, days, onJourney, onHoverLine, onPickLine, onExport, onImport, onReset, onSelectAll } = props;
+  const { totals, trainCount, lines, progressByLine, focusLineId, days, tracks, onToggleTrack, onJourney, onHoverLine, onPickLine, onExport, onImport, onReset, onSelectAll } = props;
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -50,11 +52,11 @@ export function FloatingBar(props: FloatingBarProps) {
         <Roundel className="h-11 w-11 flex-none drop-shadow-[0_2px_3px_rgba(0,0,0,.3)]" />
         <h1 className="hidden whitespace-nowrap text-[19px] lowercase leading-none tracking-[0.07em] sm:block">rl on rails</h1>
         <span className="hidden h-6 w-px bg-white/25 sm:block" />
-        <div className="flex flex-none items-center gap-2 text-[12.5px]" title={`${totals.read} of ${totals.total} stations read`}>
+        <div className="flex flex-none items-center gap-2 text-[12.5px]" title={`${totals.routeRead} of ${totals.routeTotal} stations on your route · ${totals.read} of ${totals.total} on the whole map`}>
           <div className="hidden h-2 w-16 overflow-hidden rounded-full bg-white/20 min-[400px]:block sm:w-24">
-            <div className={cx("progress-fill h-full rounded-full transition-[width] duration-700", totals.read >= totals.total && "rainbow")} style={{ width: `${(100 * totals.read) / totals.total}%` }} />
+            <div className={cx("progress-fill h-full rounded-full transition-[width] duration-700", totals.routeRead >= totals.routeTotal && "rainbow")} style={{ width: `${(100 * totals.routeRead) / totals.routeTotal}%` }} />
           </div>
-          <span className="whitespace-nowrap">{totals.read} / {totals.total}</span>
+          <span className="whitespace-nowrap">{totals.routeRead} / {totals.routeTotal}</span>
         </div>
         <button
           type="button"
@@ -95,12 +97,16 @@ export function FloatingBar(props: FloatingBarProps) {
                       <div className="truncate text-[13px] leading-tight">
                         {line.name}
                         {p.complete && <CheckIcon className="ml-1 inline h-3.5 w-3.5 align-[-2px]" style={{ color: colour }} />}
+                        {line.track && tracks.includes(line.id) && <span className="ml-1.5 rounded-full bg-tint-strong px-1.5 py-px text-[9.5px] uppercase tracking-[0.06em] text-ink-soft">Chosen</span>}
                       </div>
                       <div className="text-[10.5px] text-ink-faint">{line.phase}</div>
                     </div>
-                    <div className="text-[12px] text-ink-soft">{p.read} / {p.total}</div>
-                    <div className="col-start-2 col-end-4 h-1 overflow-hidden rounded-full bg-bar">
-                      <div className="h-full rounded-full" style={{ width: `${(100 * p.read) / p.total}%`, background: colour }} />
+                    <div className="text-[12px] text-ink-soft" title={`${p.routeRead} of ${p.routeTotal} on your route · ${p.read} of ${p.total} explored`}>
+                      {p.routeTotal > 0 ? `${p.routeRead} / ${p.routeTotal}` : `${p.read} / ${p.total}`}
+                    </div>
+                    <div className="relative col-start-2 col-end-4 h-1 overflow-hidden rounded-full bg-bar">
+                      <div className="absolute inset-y-0 left-0 rounded-full opacity-35" style={{ width: `${(100 * p.read) / p.total}%`, background: colour }} />
+                      <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(100 * p.routeRead) / p.total}%`, background: colour }} />
                     </div>
                   </li>
                 );
@@ -112,11 +118,36 @@ export function FloatingBar(props: FloatingBarProps) {
             <div>
               <h2 className="mb-2 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Progress</h2>
               <dl className="grid grid-cols-[1fr_auto] gap-y-1 text-[12.5px]">
-                <dt className="text-ink-soft">Essential</dt><dd className="text-right">{totals.essentialRead} / {totals.essentialTotal}</dd>
-                <dt className="text-ink-soft">Projects</dt><dd className="text-right">{totals.projectRead} / {totals.projectTotal}</dd>
+                <dt className="text-ink-soft">Core</dt><dd className="text-right">{totals.coreRead} / {totals.coreTotal}</dd>
+                <dt className="text-ink-soft">Chosen tracks</dt><dd className="text-right">{totals.trackRead} / {totals.trackTotal}</dd>
+                <dt className="text-ink-soft">Exercises</dt><dd className="text-right">{totals.exerciseRead} / {totals.exerciseTotal}</dd>
+                <dt className="text-ink-soft">Implemented</dt><dd className="text-right">{totals.implemented}</dd>
+                <dt className="text-ink-soft">Investigated</dt><dd className="text-right">{totals.investigated}</dd>
+                <dt className="text-ink-soft">Explored</dt><dd className="text-right">{totals.read} / {totals.total}</dd>
                 <dt className="text-ink-soft">Resources</dt><dd className="text-right">{totals.resourcesDone} / {totals.resourcesTotal}</dd>
                 <dt className="text-ink-soft">Trains running</dt><dd className="text-right">{trainCount}</dd>
               </dl>
+            </div>
+            <div>
+              <h2 className="mb-1 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Your route</h2>
+              <p className="mb-2 text-[11.5px] leading-snug text-ink-faint">Core stations and the exercises on the spine are for everyone. Pick the specialisations you actually intend to do; their stations and exercises then count towards your route.</p>
+              <div className="flex flex-wrap gap-1.5">
+                {lines.filter((line) => line.track).map((line) => {
+                  const on = tracks.includes(line.id);
+                  return (
+                    <button
+                      key={line.id}
+                      type="button"
+                      onClick={() => onToggleTrack(line.id)}
+                      aria-pressed={on}
+                      className={cx("rounded-full border px-2.5 py-1 text-[12px] transition", on ? "border-transparent text-white" : "border-rule text-ink-soft hover:bg-tint")}
+                      style={on ? { background: TFL_COLOURS[line.tfl], color: isLightLine(line.tfl) ? "#1a1a1a" : "#fff" } : undefined}
+                    >
+                      {line.short}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div>
               <h2 className="mb-2 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Data</h2>
