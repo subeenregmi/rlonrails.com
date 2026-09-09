@@ -27,7 +27,10 @@ interface TubeMapProps {
   selectedId: string | null;
   focusLineId: string | null;
   trainCount: number;
+  /** Mask the coloured tracks while the intro draws them in. */
   intro: boolean;
+  /** Touch devices skip the drawn intro: shorter opening flight, trains appear sooner. */
+  lite: boolean;
   onSelect: (id: string | null) => void;
   onPinLine: (id: string | null) => void;
 }
@@ -100,9 +103,18 @@ const trackNodes = (line: Line, layout: MapLayout): TrackNode[] => {
   return nodes;
 };
 const nodeAfter = (line: Line, nodes: TrackNode[], index: number): TrackNode | null => nodes[index + 1] ?? (line.closed ? nodes[0] : null);
+// Every dashed frontier flows in step. Reading the animations is deferred a
+// frame: done inside React's commit it forces a synchronous style recalc of
+// the whole map, once per path, while the tree is at its dirtiest.
 const lockFlowPhase = (el: SVGPathElement | null) => {
-  el?.getAnimations().forEach((a) => { if ((a as CSSAnimation).animationName === "next-flow") a.startTime = 0; });
+  if (!el) return;
+  requestAnimationFrame(() => {
+    if (!el.isConnected) return;
+    el.getAnimations().forEach((a) => { if ((a as CSSAnimation).animationName === "next-flow") a.startTime = 0; });
+  });
 };
+const LITE_INTRO_MS = 600;
+const LITE_FLIGHT_MS = 2200;
 const SVG_NS = "http://www.w3.org/2000/svg";
 export type CameraListener = (view: View) => void;
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -293,7 +305,8 @@ interface TrackProps {
   colour: string;
   dash: string;
   frontier: string;
-  readEnds: boolean[];
+  /** One character per terminus, "1" where its station is read. A string so the memo holds. */
+  readEnds: string;
   masked: boolean;
   dim?: string;
 }
@@ -331,7 +344,7 @@ const Track = memo(function Track({ line, layout, schedule, colour, dash, fronti
               y1={end.pt.y.toFixed(1)}
               x2={bx.toFixed(1)}
               y2={by.toFixed(1)}
-              stroke={readEnds[i] ? colour : undefined}
+              stroke={readEnds[i] === "1" ? colour : undefined}
               style={style}
             />
             <line
@@ -341,7 +354,7 @@ const Track = memo(function Track({ line, layout, schedule, colour, dash, fronti
               y1={(by - ny).toFixed(1)}
               x2={(bx + nx).toFixed(1)}
               y2={(by + ny).toFixed(1)}
-              stroke={readEnds[i] ? colour : undefined}
+              stroke={readEnds[i] === "1" ? colour : undefined}
               style={style}
             />
           </g>
@@ -540,7 +553,7 @@ const LineLamps = memo(function LineLamps({ line, layout, schedule, statusKey, f
 const statusChar = (status: Status, complete: boolean) => (status === "read" ? (complete ? "c" : "r") : status === "reading" ? "g" : "u");
 
 export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
-  { layout, schedule, hereId, nextIds, completeIds, progress, colours, selectedId, focusLineId, trainCount, intro, onSelect, onPinLine },
+  { layout, schedule, hereId, nextIds, completeIds, progress, colours, selectedId, focusLineId, trainCount, intro, lite, onSelect, onPinLine },
   ref,
 ) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -762,14 +775,14 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     const b = worldRef.current;
     setViewCentered(b.x + b.w / 2, b.y + b.h / 2, Math.max(b.w, b.h * aspect()) * 1.08, false);
     settle();
-    flyTo(START_VIEW.cx, START_VIEW.cy, Math.max(START_VIEW.w, START_VIEW.h * aspect()), Math.max(3000, schedule.total - 1200) + 1800);
+    flyTo(START_VIEW.cx, START_VIEW.cy, Math.max(START_VIEW.w, START_VIEW.h * aspect()), lite ? LITE_FLIGHT_MS : Math.max(3000, schedule.total - 1200) + 1800);
     return () => {
       observer.disconnect();
       stopGlide();
       window.removeEventListener("scroll", measureWrap);
       window.visualViewport?.removeEventListener("resize", measureWrap);
     };
-  }, [setViewCentered, settle, flyTo, aspect, measureWrap, schedule.total, stopGlide]);
+  }, [setViewCentered, settle, flyTo, aspect, measureWrap, schedule.total, stopGlide, lite]);
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -863,7 +876,12 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     layer.append(dashed);
     lockFlowPhase(dashed);
     const distance = toPos - fromPos;
-    const duration = 220 + Math.min(900, distance * 4);
+    // The frontier grows backwards down the line as often as forwards, so the
+    // distance is signed. Timing it on the signed value gave a negative
+    // duration, an easing that never reached 1, and a frame loop that never
+    // ended — writing a path that grew cubically with every frame. That was
+    // the lag that set in after marking a station read.
+    const duration = 220 + Math.min(900, Math.abs(distance) * 4);
     const start = performance.now();
     const step = (now: number) => {
       const k = easeInOut(Math.min(1, (now - start) / duration));
@@ -962,7 +980,7 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   );
   const litKey = useMemo(() => CURRICULUM.links.map(([a, b]) => (isRead(progress, a) && isRead(progress, b) ? "1" : "0")).join(""), [progress]);
   const readEndsByLine = useMemo(
-    () => Object.fromEntries(CURRICULUM.lines.map((line) => [line.id, layout.lines[line.id].termini.map((end) => isRead(progress, end.stationId))])),
+    () => Object.fromEntries(CURRICULUM.lines.map((line) => [line.id, layout.lines[line.id].termini.map((end) => (isRead(progress, end.stationId) ? "1" : "0")).join("")])),
     [layout, progress],
   );
   const activeLines = useMemo(() => new Set(Object.entries(intervalsByLine).filter(([, l]) => l.length).map(([id]) => id)), [intervalsByLine]);
@@ -1109,9 +1127,6 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
             <LineBooths key={line.id} line={line} layout={layout} schedule={schedule} statusKey={statusKeys[line.id]} focusIds={focusIds} />
           ))}
         </g>
-        <g className="trains-layer" style={{ "--delay": `${schedule.total.toFixed(0)}ms` } as React.CSSProperties}>
-          <Trains layout={layout} intervals={intervalsByLine} count={trainCount} focusLineId={focusLineId} subscribe={subscribe} />
-        </g>
         <River layout={layout} surface={surface} colours={colours} />
         <LinkLayer layout={layout} colours={colours} litKey={litKey} selectedId={selectedId} focusLineId={focusLineId} />
         <g>
@@ -1155,6 +1170,7 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
           <YouAreHere pt={layout.stations[hereId].pt} colour={colours[layout.stations[hereId].lineId]} delay={schedule.total} onClick={() => onSelect(hereId)} />
         )}
       </svg>
+      <Trains layout={layout} intervals={intervalsByLine} count={trainCount} focusLineId={focusLineId} subscribe={subscribe} river={surface.river} revealAfterMs={lite ? LITE_INTRO_MS : schedule.total} />
       <div ref={shieldRef} className="drag-shield absolute inset-0 hidden" />
 
       {hover && hoverStation && (

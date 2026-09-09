@@ -64,7 +64,11 @@ const SKILL_HINT: Record<Skill, string> = {
   investigated: "I have tested a claim about it with my own evidence.",
 };
 
-const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+// One formatter, built on first use: toLocaleDateString with options builds a
+// new one every call, and that costs tens of milliseconds on a phone — paid on
+// every re-render of a read station's panel, so on every tick.
+let dateFormat: Intl.DateTimeFormat | null = null;
+const fmtDate = (iso: string) => (dateFormat ??= new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" })).format(new Date(iso));
 const sourceWord = (station: Station) =>
   station.resources.some((r) => r.kind === "book") ? "book" : station.resources.some((r) => r.kind === "course") ? "course" : "set";
 
@@ -86,8 +90,10 @@ export function StationPanel(props: StationPanelProps) {
   const onRoute = station && line ? isOnRoute(station, line, progress.tracks) : true;
 
   return (
+    // Slides in with a transform. Animating the width instead re-laid-out and
+    // re-wrapped every line of text in the panel on each frame of the slide.
     <aside
-      className={cx("absolute inset-y-0 right-0 z-30 overflow-x-hidden overflow-y-auto overscroll-contain border-l border-rule bg-surface transition-[width] duration-[380ms] ease-[cubic-bezier(.2,.8,.2,1)]", open ? "w-full pr-safe-right sm:w-[calc(380px+var(--safe-right))]" : "w-0")}
+      className={cx("absolute inset-y-0 right-0 z-30 w-full overflow-x-hidden overflow-y-auto overscroll-contain border-l border-rule bg-surface pr-safe-right transition-transform duration-[380ms] ease-[cubic-bezier(.2,.8,.2,1)] sm:w-[calc(380px+var(--safe-right))]", open ? "translate-x-0" : "translate-x-full")}
       style={{ "--c": colour, "--on": on } as React.CSSProperties}
       aria-hidden={!open}
     >
