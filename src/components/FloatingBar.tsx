@@ -99,7 +99,10 @@ export function FloatingBar(props: FloatingBarProps) {
                         {p.complete && <CheckIcon className="ml-1 inline h-3.5 w-3.5 align-[-2px]" style={{ color: colour }} />}
                         {line.track && tracks.includes(line.id) && <span className="ml-1.5 rounded-full bg-tint-strong px-1.5 py-px text-[9.5px] uppercase tracking-[0.06em] text-ink-soft">Chosen</span>}
                       </div>
-                      <div className="text-[10.5px] text-ink-faint">{line.phase}</div>
+                      <div className="text-[10.5px] text-ink-faint">
+                        {line.phase}
+                        {p.routeTotal < p.total && ` · ${p.read} of ${p.total} explored`}
+                      </div>
                     </div>
                     <div className="text-[12px] text-ink-soft" title={`${p.routeRead} of ${p.routeTotal} on your route · ${p.read} of ${p.total} explored`}>
                       {p.routeTotal > 0 ? `${p.routeRead} / ${p.routeTotal}` : `${p.read} / ${p.total}`}

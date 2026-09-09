@@ -100,10 +100,12 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
       if (done) merged.resources[id] = true;
       else delete merged.resources[id];
     }
-    const wasComplete = lineProgress(line, current).complete;
+    const before = lineProgress(line, current);
+    const after = lineProgress(line, merged);
     progressRef.current = merged;
     setProgress(merged);
-    if (!wasComplete && lineProgress(line, merged).complete) setTimeout(() => setToast({ key: Date.now(), line }), 700);
+    const kind = !before.explored && after.explored ? "explored" : !before.complete && after.complete ? "route" : null;
+    if (kind) setTimeout(() => setToast({ key: Date.now(), line, kind, remaining: after.total - after.read }), 700);
     persist(merged);
   }, [persist]);
 
@@ -236,7 +238,8 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (dialog || journeyOpen || (event.target as HTMLElement).matches("input")) return;
+      const target = event.target;
+      if (dialog || journeyOpen || (target instanceof HTMLElement && target.matches("input"))) return;
       if (event.key === "Escape") { closePanel(); return; }
       if (!selected) return;
       const { station, line } = selected;

@@ -97,7 +97,10 @@ export function JourneyContent({ progress, onClose }: { progress: Progress; onCl
                 <span className="h-7 w-1.5 rounded" style={{ background: colour }} />
                 <div className="min-w-0">
                   <div className="truncate text-[13.5px] leading-tight">{line.name}</div>
-                  <div className="text-[10.5px] text-ink-faint">{line.phase}</div>
+                  <div className="text-[10.5px] text-ink-faint">
+                    {line.phase}
+                    {p.routeTotal < p.total && ` · ${p.read} of ${p.total} explored`}
+                  </div>
                 </div>
                 <div className="text-[12.5px] text-ink-soft" title={`${p.routeRead} of ${p.routeTotal} on your route`}>
                   {p.routeTotal > 0 ? `${p.routeRead} / ${p.routeTotal}` : `${p.read} / ${p.total}`}

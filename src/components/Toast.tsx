@@ -8,6 +8,9 @@ import { cx } from "@/lib/cx";
 export interface ToastMessage {
   key: number;
   line: Line;
+  /** "route" when the stops your route asks for are done, "explored" when every station is read. */
+  kind: "route" | "explored";
+  remaining: number;
 }
 
 interface Shown {
@@ -22,7 +25,8 @@ export function Toast({ toast }: { toast: ToastMessage | null }) {
   if (toast && toast !== shown?.toast) setShown({ toast, leaving: false });
   else if (!toast && shown && !shown.leaving) setShown({ toast: shown.toast, leaving: true });
   if (!shown) return null;
-  const { line } = shown.toast;
+  const { line, kind, remaining } = shown.toast;
+  const explored = kind === "explored";
   const colour = TFL_COLOURS[line.tfl];
   const palette = [colour, "#FFD300", "#fff", "#E32017", "#0098D4"];
   return (
@@ -35,9 +39,13 @@ export function Toast({ toast }: { toast: ToastMessage | null }) {
       style={{ background: colour, color: textOn(line.tfl) }}
       onAnimationEnd={(event) => { if (shown.leaving && event.target === event.currentTarget) setShown(null); }}
     >
-      {line.name} line complete
-      <small className="mt-0.5 block text-[12px] opacity-85">{line.phase} · Every station read and every lamp lit.</small>
-      {Array.from({ length: SPARKS }, (_, i) => {
+      {line.name} {explored ? "line complete" : "route complete"}
+      <small className="mt-0.5 block text-[12px] opacity-85">
+        {explored
+          ? `${line.phase} · Every station read and every lamp lit.`
+          : `${line.phase} · Every stop your route asks for. ${remaining} more to explore.`}
+      </small>
+      {explored && Array.from({ length: SPARKS }, (_, i) => {
         const angle = (Math.PI * 2 * i) / SPARKS + ((i * 7919) % 40) / 100;
         const radius = 130 + ((i * 104729) % 170);
         return (
