@@ -93,6 +93,9 @@ body::before {
 .map-wrap {
   background-color: var(--water);
   transition: background-color 0.4s;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .island-land {
   fill: var(--paper);
@@ -121,10 +124,15 @@ body::before {
 .map-svg {
   touch-action: none;
   cursor: grab;
-  user-select: none;
 }
 .drag-shield {
   cursor: grabbing;
+}
+/* A pan begun on the (unselectable) map would still paint a selection across
+   the panel beside it, so the whole page stops selecting for the drag. */
+body.map-dragging {
+  user-select: none;
+  -webkit-user-select: none;
 }
 .map-svg.moving {
   will-change: transform;
