@@ -191,6 +191,10 @@ export const CURRICULUM: Curriculum = {
           598
         ],
         [
+          1118,
+          598
+        ],
+        [
           1430,
           598
         ],
@@ -303,6 +307,37 @@ export const CURRICULUM: Curriculum = {
               "kind": "video",
               "label": "Silver lecture 1: Introduction to Reinforcement Learning",
               "url": "https://www.youtube.com/watch?v=2pWv7GOvuf0"
+            }
+          ]
+        },
+        {
+          "id": "p0-dl",
+          "name": "Deep learning",
+          "title": "Deep-learning readiness",
+          "meta": "Backprop, convnets, and a training loop you can debug",
+          "tag": "core",
+          "idea": "Automatic differentiation, optimisers and their schedules, convolutional and recurrent nets, normalisation, and a training loop you have written yourself. A diagnostic like the maths check rather than a course: test yourself and refresh only what fails.",
+          "fwd": "Phase 2 asks you to put a convnet where the Q-table was and debug it when it does not learn. Nothing on this map teaches that part.",
+          "outcome": "Write a training loop from scratch, read a loss curve, and tell a broken implementation apart from a badly tuned one before any of it is wrapped in an agent.",
+          "resources": [
+            {
+              "id": "p0-dl:1",
+              "kind": "book",
+              "label": "Dive into Deep Learning (chs. 3\u20137: MLPs, optimisation, convnets)",
+              "url": "https://d2l.ai/"
+            },
+            {
+              "id": "p0-dl:2",
+              "kind": "site",
+              "label": "PyTorch: Learn the Basics",
+              "url": "https://docs.pytorch.org/tutorials/beginner/basics/intro.html"
+            },
+            {
+              "id": "p0-dl:3",
+              "kind": "course",
+              "label": "CS231n (convnets, if the vision half is the gap)",
+              "url": "https://cs231n.stanford.edu/",
+              "role": "optional"
             }
           ]
         },
@@ -1803,6 +1838,7 @@ export const CURRICULUM: Curriculum = {
           "idea": "Add Double DQN and two more components of your choice to your own agent, one at a time, on a fixed interaction budget, and report the result with uncertainty rather than one curve per variant.",
           "fwd": "The first experiment on this map that looks like a paper's ablation table.",
           "outcome": "Run and report a multi-variant ablation whose conclusion survives the seed noise.",
+          "always": true,
           "prereqs": [
             "p2-ddqn",
             "p1e-protocol",
@@ -3281,8 +3317,9 @@ export const CURRICULUM: Curriculum = {
           "idea": "Implement UCT for Connect Four and measure playing strength against simulation count. Then, if you want the full picture, replace the rollouts with a small trained network.",
           "fwd": "Makes AlphaZero and MuZero concrete instead of impressive.",
           "outcome": "Explain exactly what the learned network replaces in plain MCTS, having built both.",
+          "always": true,
           "prereqs": [
-            "p4-alphazero"
+            "p4-mcts"
           ],
           "deliverables": [
             {
@@ -4596,7 +4633,7 @@ export const CURRICULUM: Curriculum = {
       "short": "LLM RL",
       "phase": "Phase 5",
       "tfl": "elizabeth",
-      "goal": "Preference-based RL, RLHF, direct alignment and verifiable-reward reasoning RL. InstructGPT, DPO and GRPO are core; the rest is a specialisation, not a prerequisite for other tracks.",
+      "goal": "Preference-based RL, RLHF, direct alignment and verifiable-reward reasoning RL. Christiano, InstructGPT, DPO, GRPO and RLVR are core; the rest is a specialisation, not a prerequisite for other tracks. The language-model half \u2014 tokenised sequences, pretraining, supervised fine-tuning \u2014 is assumed here rather than taught, so bring it with you.",
       "track": true,
       "from": "p3-x-continuous",
       "path": [
@@ -4713,7 +4750,7 @@ export const CURRICULUM: Curriculum = {
           "name": "RL from preferences",
           "title": "Deep RL from Human Preferences",
           "meta": "Christiano et al., NeurIPS 2017",
-          "tag": "track",
+          "tag": "core",
           "idea": "Learn a reward model from pairwise trajectory comparisons, then optimise with RL. The intellectual root of RLHF.",
           "fwd": "Everything on this line.",
           "landmark": true,
@@ -4755,7 +4792,7 @@ export const CURRICULUM: Curriculum = {
           "title": "Training language models to follow instructions with human feedback",
           "meta": "Ouyang et al., NeurIPS 2022",
           "tag": "core",
-          "idea": "The three-stage recipe: SFT, reward model, PPO. Non-negotiable.",
+          "idea": "The three-stage recipe: supervised fine-tuning on demonstrations (SFT), a reward model fit to human preferences, then PPO against that reward with a KL penalty back to the SFT policy. Non-negotiable.",
           "fwd": "The template behind ChatGPT and all subsequent LLM RL.",
           "outcome": "Draw the three-stage pipeline and say what data each stage needs.",
           "landmark": true,
@@ -4913,6 +4950,23 @@ export const CURRICULUM: Curriculum = {
           ]
         },
         {
+          "id": "p5-rlvr",
+          "name": "RLVR",
+          "title": "RL with Verifiable Rewards",
+          "meta": "Term popularised by Lambert et al., Tülu 3, 2024",
+          "tag": "core",
+          "idea": "Use automatically checkable correctness (math answer, unit tests) as reward.",
+          "fwd": "The concept behind every reasoning-RL recipe.",
+          "resources": [
+            {
+              "id": "p5-rlvr:1",
+              "kind": "paper",
+              "label": "Tülu 3",
+              "url": "https://arxiv.org/abs/2411.15124"
+            }
+          ]
+        },
+        {
           "id": "p5-r1",
           "name": "DeepSeek-R1",
           "title": "DeepSeek-R1",
@@ -4927,23 +4981,6 @@ export const CURRICULUM: Curriculum = {
               "kind": "paper",
               "label": "DeepSeek-R1",
               "url": "https://arxiv.org/abs/2501.12948"
-            }
-          ]
-        },
-        {
-          "id": "p5-rlvr",
-          "name": "RLVR",
-          "title": "RL with Verifiable Rewards",
-          "meta": "Term popularised by Lambert et al., Tülu 3, 2024",
-          "tag": "track",
-          "idea": "Use automatically checkable correctness (math answer, unit tests) as reward.",
-          "fwd": "The concept behind every reasoning-RL recipe.",
-          "resources": [
-            {
-              "id": "p5-rlvr:1",
-              "kind": "paper",
-              "label": "Tülu 3",
-              "url": "https://arxiv.org/abs/2411.15124"
             }
           ]
         },
