@@ -49,8 +49,8 @@ export function TracksModal({ open, tracks, prompted, onToggle, onAll, onDone }:
 
         <p className="border-b border-rule px-5 py-3 text-[12.5px] leading-snug text-ink-soft sm:px-6">
           Every line stays on the map and stays readable. Choosing one only decides what counts as
-          <b className="font-normal text-ink"> your route</b>: its stations join the progress bar, the recommended next stop rides through
-          them, and the &ldquo;you are here&rdquo; marker stops skipping past them.
+          <b className="font-normal text-ink"> your route</b>: its stations join the progress bar and the recommended next stop rides
+          through them. Reference stations are the exception — they stay off every route, chosen or not, until a project sends you to one.
         </p>
 
         <ul className="flex max-h-[52dvh] flex-col gap-0.5 overflow-y-auto overscroll-contain px-3 py-3 sm:px-4">

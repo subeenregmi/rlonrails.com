@@ -1602,7 +1602,7 @@ export const CURRICULUM: Curriculum = {
           "name": "Noisy Nets",
           "title": "Noisy Networks for Exploration",
           "meta": "Fortunato et al., ICLR 2018",
-          "tag": "reference",
+          "tag": "track",
           "idea": "Learnable parametric noise for exploration.",
           "fwd": "A Rainbow component.",
           "resources": [
