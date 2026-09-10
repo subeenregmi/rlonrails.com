@@ -3909,7 +3909,7 @@ export const CURRICULUM: Curriculum = {
           "name": "FeUdal Networks",
           "title": "FeUdal Networks (FuN)",
           "meta": "Vezhnevets et al., ICML 2017",
-          "tag": "reference",
+          "tag": "track",
           "idea": "Manager sets latent goals for a worker at different time scales.",
           "fwd": "HIRO.",
           "resources": [
@@ -3926,7 +3926,7 @@ export const CURRICULUM: Curriculum = {
           "name": "HIRO",
           "title": "HIRO",
           "meta": "Nachum et al., NeurIPS 2018",
-          "tag": "reference",
+          "tag": "track",
           "idea": "Data-efficient off-policy HRL with goal relabelling.",
           "fwd": "Off-policy hierarchy.",
           "resources": [
@@ -4129,7 +4129,7 @@ export const CURRICULUM: Curriculum = {
           "name": "COMA",
           "title": "Counterfactual Multi-Agent Policy Gradients",
           "meta": "Foerster et al., AAAI 2018",
-          "tag": "reference",
+          "tag": "track",
           "idea": "Counterfactual baseline for credit assignment.",
           "fwd": "Policy-gradient MARL.",
           "resources": [
@@ -4169,7 +4169,7 @@ export const CURRICULUM: Curriculum = {
           "name": "CFR & PSRO",
           "title": "Counterfactual Regret Minimization / PSRO",
           "meta": "Zinkevich et al., NeurIPS 2007; Lanctot et al., NeurIPS 2017",
-          "tag": "reference",
+          "tag": "track",
           "idea": "Game-theoretic RL. CFR is the basis of superhuman poker. Nash and self-play concepts.",
           "fwd": "Equilibrium-seeking learning.",
           "resources": [
@@ -4582,7 +4582,7 @@ export const CURRICULUM: Curriculum = {
           "name": "Rubik's Cube",
           "title": "Solving Rubik's Cube with a Robot Hand",
           "meta": "OpenAI, arXiv 2019",
-          "tag": "reference",
+          "tag": "track",
           "idea": "Sim-to-real plus automatic domain randomisation.",
           "fwd": "Large-scale sim-to-real.",
           "resources": [
@@ -4599,7 +4599,7 @@ export const CURRICULUM: Curriculum = {
           "name": "DayDreamer",
           "title": "DayDreamer: World Models for Physical Robot Learning",
           "meta": "Wu et al., CoRL 2023. Simulators: MuJoCo, DM Control, Isaac Gym, Isaac Lab",
-          "tag": "reference",
+          "tag": "track",
           "idea": "Dreamer on real robots.",
           "fwd": "World models in the physical world.",
           "resources": [
@@ -5434,7 +5434,7 @@ export const CURRICULUM: Curriculum = {
           "name": "TD convergence",
           "title": "Convergence of TD and Q-learning",
           "meta": "Tsitsiklis & Van Roy 1997; Jaakkola, Jordan & Singh 1994",
-          "tag": "reference",
+          "tag": "track",
           "idea": "TD with function approximation and stochastic-approximation convergence.",
           "fwd": "Why the deadly triad bites.",
           "resources": [
@@ -5457,7 +5457,7 @@ export const CURRICULUM: Curriculum = {
           "name": "PG convergence",
           "title": "On the Theory of Policy Gradient Methods",
           "meta": "Agarwal, Kakade, Lee & Mahajan, JMLR 2021",
-          "tag": "reference",
+          "tag": "track",
           "idea": "Convergence of policy-gradient methods.",
           "fwd": "Guarantees behind Phase 3.",
           "resources": [
