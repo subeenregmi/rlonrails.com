@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { Line } from "@/lib/curriculum";
-import type { LineProgress, Totals } from "@/lib/progress";
+import { lineTally, type LineProgress, type Totals } from "@/lib/progress";
 import { TFL_COLOURS, isLightLine } from "@/lib/tfl";
 import { cx } from "@/lib/cx";
 import { CheckIcon, ChevronDownIcon, XMarkIcon } from "@heroicons/react/16/solid";
@@ -125,7 +125,7 @@ export function FloatingBar(props: FloatingBarProps) {
             <h2 className="mb-2 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Lines</h2>
             <ul className="flex flex-col gap-0.5">
               {lines.map((line) => {
-                const p = progressByLine[line.id];
+                const tally = lineTally(progressByLine[line.id]);
                 const colour = TFL_COLOURS[line.tfl];
                 return (
                   <li
@@ -137,22 +137,23 @@ export function FloatingBar(props: FloatingBarProps) {
                   >
                     <span className="h-7 w-1.5 rounded" style={{ background: colour }} />
                     <div className="min-w-0">
-                      <div className="truncate text-[13px] leading-tight">
-                        {line.name}
-                        {p.complete && <CheckIcon className="ml-1 inline h-3.5 w-3.5 align-[-2px]" style={{ color: colour }} />}
-                        {line.track && tracks.includes(line.id) && <span className="ml-1.5 rounded-full bg-tint-strong px-1.5 py-px text-[9.5px] uppercase tracking-[0.06em] text-ink-soft">Chosen</span>}
+                      {/* The tick and the badge sit beside the name rather than
+                          inside it, so a long name is what gets clipped. */}
+                      <div className="flex min-w-0 items-center gap-1.5 text-[13px] leading-tight">
+                        <span className="truncate">{line.name}</span>
+                        {tally.complete && <CheckIcon className="h-3.5 w-3.5 flex-none" style={{ color: colour }} />}
+                        {line.track && tracks.includes(line.id) && <span className="flex-none rounded-full bg-tint-strong px-1.5 py-px text-[9.5px] uppercase tracking-[0.06em] text-ink-soft">Chosen</span>}
                       </div>
-                      <div className="text-[10.5px] text-ink-faint">
+                      <div className="truncate text-[10.5px] text-ink-faint">
                         {line.phase}
-                        {p.routeTotal < p.total && ` · ${p.read} of ${p.total} explored`}
+                        {tally.note && ` · ${tally.note}`}
                       </div>
                     </div>
-                    <div className="text-[12px] text-ink-soft" title={`${p.routeRead} of ${p.routeTotal} on your route · ${p.read} of ${p.total} explored`}>
-                      {p.routeTotal > 0 ? `${p.routeRead} / ${p.routeTotal}` : `${p.read} / ${p.total}`}
+                    <div className="text-[12px] text-ink-soft tabular-nums" title={tally.title}>
+                      {tally.done} / {tally.need}
                     </div>
                     <div className="relative col-start-2 col-end-4 h-1 overflow-hidden rounded-full bg-bar">
-                      <div className="absolute inset-y-0 left-0 rounded-full opacity-35" style={{ width: `${(100 * p.read) / p.total}%`, background: colour }} />
-                      <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(100 * p.routeRead) / p.total}%`, background: colour }} />
+                      <div className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-700" style={{ width: `${100 * tally.fraction}%`, background: colour }} />
                     </div>
                   </li>
                 );
@@ -165,7 +166,10 @@ export function FloatingBar(props: FloatingBarProps) {
               <h2 className="mb-2 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Progress</h2>
               <dl className="grid grid-cols-[1fr_auto] gap-y-1 text-[12.5px]">
                 <dt className="text-ink-soft">Core</dt><dd className="text-right">{totals.coreRead} / {totals.coreTotal}</dd>
-                <dt className="text-ink-soft">Chosen tracks</dt><dd className="text-right">{totals.trackRead} / {totals.trackTotal}</dd>
+                {/* Until a specialisation is picked there is no denominator to
+                    count against, and "0 / 0" reads as a broken counter. */}
+                <dt className="text-ink-soft">Chosen tracks</dt>
+                <dd className="text-right">{totals.trackTotal > 0 ? `${totals.trackRead} / ${totals.trackTotal}` : <span className="text-ink-faint">None picked</span>}</dd>
                 <dt className="text-ink-soft">Exercises</dt><dd className="text-right">{totals.exerciseRead} / {totals.exerciseTotal}</dd>
                 <dt className="text-ink-soft">Implemented</dt><dd className="text-right">{totals.implemented}</dd>
                 <dt className="text-ink-soft">Investigated</dt><dd className="text-right">{totals.investigated}</dd>
