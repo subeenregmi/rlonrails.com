@@ -1,4 +1,4 @@
-import type { Curriculum, Line, PillPoint, Waypoint } from "./curriculum";
+import { rideOrder, type Curriculum, type Line, type PillPoint, type Waypoint } from "./curriculum";
 
 export interface Pt {
   x: number;
@@ -383,10 +383,7 @@ export function introSchedule(curriculum: Curriculum, layout: MapLayout): IntroS
     const times = line.stations.map((s) => passTime[s.id]).filter((t): t is number => t !== undefined);
     return times.length ? Math.min(...times) : Infinity;
   };
-  const order = [
-    ...curriculum.spineOrder.map((id) => curriculum.lines.find((l) => l.id === id)).filter((l): l is Line => Boolean(l)),
-    ...curriculum.lines.filter((l) => !curriculum.spineOrder.includes(l.id)),
-  ];
+  const order = rideOrder(curriculum);
   let previous = INTRO_LEAD;
   order.forEach((line, i) => {
     const reached = reachTime(line);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { CURRICULUM, findLine, findResource, findStation, isTrackLine, logResources, type Line, type Station } from "@/lib/curriculum";
+import { CURRICULUM, findLine, findResource, findStation, isTrackLine, logResources, rideOrder, type Line, type Station } from "@/lib/curriculum";
 import { computeLayout, introSchedule } from "@/lib/geometry";
 import {
   SKILLS, chooseDue, emptyProgress, isRead, isValidProgress, lineProgress, missingPrereqs, nextOnLine, nextStop, sanitizeProgress,
@@ -24,6 +24,7 @@ import { TubeMap, type TubeMapHandle } from "./TubeMap";
 
 export const trainCountFor = (readStations: number) => (readStations > 0 ? Math.min(22, 2 + Math.floor(readStations / 4)) : 0);
 const LITE_INTRO_MS = 1400;
+const RIDE_LINES = rideOrder(CURRICULUM);
 
 function Tracker({ initialProgress }: { initialProgress: Progress }) {
   const layout = useMemo(() => computeLayout(CURRICULUM), []);
@@ -317,7 +318,7 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
           <FloatingBar
             totals={sums}
             trainCount={trainCount}
-            lines={CURRICULUM.lines}
+            lines={RIDE_LINES}
             progressByLine={progressByLine}
             focusLineId={focusLineId}
             days={days}
@@ -361,7 +362,7 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
           onClose={closePanel}
         />
       </main>
-      <JourneyStrip lines={CURRICULUM.lines} progressByLine={progressByLine} focusLineId={focusLineId} onHover={setHoverLineId} onPick={pickLine} />
+      <JourneyStrip lines={RIDE_LINES} progressByLine={progressByLine} focusLineId={focusLineId} onHover={setHoverLineId} onPick={pickLine} />
       <Toast toast={toast} />
       <Dialog dialog={dialog} onClose={closeDialog} />
       <JourneyModal open={journeyOpen} progress={progress} onClose={closeJourney} />

@@ -38,6 +38,7 @@ Do not read these end-to-end before starting; run them *in parallel* with the re
 
 Read Sutton & Barto chs. 3–13 as the backbone; the original papers below add historical grounding and are worth skimming for the source of ideas you'll use forever.
 
+- **Bandits — S&B ch. 2; UCB (Auer et al. 2002) and Thompson sampling.** Regret in the one-state case: exploration before the states arrive, and the cheapest experiment on the map to run and interpret. **Essential**, and it belongs here rather than in Phase 8: everything that line adds is depth behind this. *Forward link:* the optimism bonus is the ancestor of the count-based and pseudo-count bonuses on the exploration track, and UCRL2 lifts the same idea to unknown MDPs.
 - **Sutton & Barto ch. 3–4 — Finite MDPs, Bellman equations, dynamic programming (policy/value iteration).** **Essential.** *Forward link:* the Bellman optimality operator underlies every value-based method through to MuZero and CQL.
 - **Sutton & Barto ch. 5 — Monte Carlo methods.** **Essential.** *Forward link:* MC return estimation reappears in REINFORCE and in GRPO's group-relative returns.
 - **Sutton & Barto ch. 5.5–5.9 — Off-policy prediction via importance sampling.** Ordinary IS is unbiased with unbounded variance; weighted IS trades a little bias for much less of it. **Essential.** *Forward link:* the same ratio is PPO's probability ratio, V-trace's clipped ratio, and the implicit reward ratio inside DPO. Meet it here, where you can compute it by hand.
@@ -103,6 +104,7 @@ Use Dopamine/CleanRL as references, not copies. Everything past Double DQN — P
 - **Mnih et al., "Asynchronous Methods for Deep RL" — A3C/A2C (ICML 2016).** Parallel actors, advantage actor-critic. **Essential.** *Forward link:* the actor-learner idea scales into IMPALA.
 - **Schulman et al., "High-Dimensional Continuous Control Using Generalized Advantage Estimation (GAE)" (arXiv 2015; ICLR 2016).** Bias-variance-controlled advantage estimates via a TD(λ)-style trace. **Essential.** *Forward link:* GAE is used inside virtually every modern PPO implementation, including LLM RLHF.
 - **Schulman et al., "Trust Region Policy Optimization (TRPO)" (ICML 2015).** Monotonic-improvement policy updates via a KL trust region. **Essential (understand), Deeper (math).** *Forward link:* PPO is its practical simplification.
+- **Huang et al., "The 37 Implementation Details of PPO" (ICLR 2022 Blog Track).** Every implementation detail that changes PPO's results. **Essential**, and read here rather than in Phase 7: the exercise below audits your own PPO against it, so it has to be in front of you when you write the code.
 - **Schulman et al., "Proximal Policy Optimization (PPO)" (arXiv 1707.06347, 2017).** Clipped surrogate objective; first-order, robust, ubiquitous. **Essential — non-negotiable.** *Forward link:* the default RL algorithm; the base of InstructGPT RLHF, and the parent of GRPO/DAPO/VAPO.
 - **Wu et al., "ACKTR" (NeurIPS 2017).** Kronecker-factored natural gradient actor-critic. **Deeper/optional.**
 - **Espeholt et al., "IMPALA" (ICML 2018; arXiv 1802.01561).** Decoupled distributed actor-learner + **V-trace** off-policy correction; reaches "a throughput rate of 250,000 frames per second," over 30× faster than single-machine A3C. **Essential** for distributed RL. *Forward link:* → SEED RL; V-trace recurs in large-scale agents (AlphaStar).
@@ -177,7 +179,7 @@ These are parallel depth modules. Read the track(s) your thesis touches; skim th
 - **Pathak et al., "Curiosity-Driven Exploration by Self-Supervised Prediction (ICM)" (ICML 2017).** Intrinsic reward = forward-model prediction error in a learned feature space. **Essential.** Caveat: the "noisy-TV" failure mode.
 - **Burda et al., "Exploration by Random Network Distillation (RND)" (ICLR 2019).** Novelty = error predicting a fixed random net; first to beat average human on Montezuma's Revenge. **Essential** (clean, widely used).
 - **Osband et al., "Deep Exploration via Bootstrapped DQN" (NeurIPS 2016).** Posterior-sampling-style exploration via ensemble heads. **Deeper.**
-- **Jaksch, Ortner & Auer, "Near-optimal Regret Bounds for Reinforcement Learning (UCRL2)" (JMLR 2010).** Optimism lifted from bandits to *unknown MDPs*: confidence sets over transitions and rewards, optimistic planning inside them, and a regret bound over T steps. **Track requirement (exploration theory).** It sits here rather than with the bandits in Phase 8 because bandit regret and regret in unknown MDPs are different problems; the bonuses in the deep methods above are its heuristic descendants.
+- **Jaksch, Ortner & Auer, "Near-optimal Regret Bounds for Reinforcement Learning (UCRL2)" (JMLR 2010).** Optimism lifted from bandits to *unknown MDPs*: confidence sets over transitions and rewards, optimistic planning inside them, and a regret bound over T steps. **Track requirement (exploration theory).** It sits here rather than with the bandits in Phase 1 because bandit regret and regret in unknown MDPs are different problems; the bonuses in the deep methods above are its heuristic descendants.
 - **Ecoffet et al., "Go-Explore" (*Nature* 2021).** Remember and return to promising states, then explore — cracks hard-exploration Atari. **Essential (idea).** *Forward link:* intrinsic-motivation ideas feed NGU/Agent57.
 
 ### 6B. Offline / batch RL
@@ -232,14 +234,15 @@ These are parallel depth modules. Read the track(s) your thesis touches; skim th
 
 ---
 
-## Phase 7 — Evaluation and experiment design (read alongside Phases 2–6)
+## Phase 7 — Evaluation and experiment design (read before Phase 2, then keep coming back)
 
 Phase 1B taught you to run one comparison honestly. This is the same discipline at the scale of a task suite, and it is where the reporting standards live. Henderson has already been read in Phase 1B.
+
+Read it on the tabular runs you already have, before your first deep agent — the exercises in Phases 2 and 3 ask for aggregate metrics with confidence intervals, and this is where those come from. The one entry that waits is the 37 details of PPO, which is read with PPO itself in Phase 3.
 
 - **Patterson, Neumann, White & White, "Empirical Design in Reinforcement Learning" (arXiv 2304.01315; JMLR 2024).** How to design an RL experiment whose conclusion survives someone else's rerun: what to control, what to tune, how much to report, and which comparisons are not worth running. **Core.**
 - **Comparing runs without fooling yourself.** Independent seeds, paired designs where you can afford them, bootstrap intervals, and an honest account of what a gap between two medians over five runs is worth. **Core.**
 - **Agarwal et al., "Deep RL at the Edge of the Statistical Precipice (rliable)" (NeurIPS 2021, outstanding paper).** Report interquartile mean, performance profiles, and stratified bootstrap CIs instead of point means over a few seeds. **Essential — use its tooling in your thesis.**
-- **Huang et al., "The 37 Implementation Details of PPO" (ICLR 2022 Blog Track).** **Essential** practical companion to Phase 3.
 - **Benchmarks to know:** **Atari ALE** (Bellemare et al. 2013; Machado et al. 2018 revisited protocols), **MuJoCo / DM Control**, **Procgen**, **D4RL** (offline), **MineRL/Minecraft**, **Isaac Gym/Isaac Lab** (massively parallel GPU sim). **Reference** — a catalogue to consult, not a reading list.
 
 **Exercise:** take one comparison you have already run and re-report it properly — IQM with stratified bootstrap confidence intervals, a performance profile, interaction and tuning budgets stated for every arm, and the limitations paragraph you would rather not write.
@@ -264,7 +267,7 @@ You don't need all of this for an empirical thesis, but a researcher should know
 - **Agarwal, Jiang, Kakade & Sun, *Reinforcement Learning: Theory and Algorithms* (working monograph, 2019–2022).** The modern theory reference: sample complexity, PAC-MDP, policy-gradient convergence, exploration theory. **Essential (theory-track reference).**
 - **Convergence of TD/Q-learning:** Tsitsiklis & Van Roy (1997, TD with function approximation); Jaakkola, Jordan & Singh (1994, stochastic-approximation convergence). **Deeper.**
 - **Policy-gradient convergence:** Agarwal, Kakade, Lee & Mahajan, "On the Theory of Policy Gradient Methods" (JMLR 2021). **Deeper.**
-- **Bandits (foundational to exploration):** UCB (Auer et al. 2002) and Thompson Sampling — regret in the one-state case. **Essential (bandits), Deeper (the proofs).** A good companion is Lattimore & Szepesvári, *Bandit Algorithms* (2020). Regret in *unknown MDPs* (UCRL2) is a different problem and now lives on track 6A.
+- **Bandits:** read in Phase 1, where the one-state case belongs. What lives here is the depth behind it — the proofs, and Lattimore & Szepesvári, *Bandit Algorithms* (2020). **Deeper.** Regret in *unknown MDPs* (UCRL2) is a different problem again and lives on track 6A.
 
 ---
 
@@ -274,8 +277,8 @@ You don't need all of this for an empirical thesis, but a researcher should know
 
 | Stage | Main content | Ready to move on when you have |
 | --- | --- | --- |
-| 1. Readiness and orientation | Maths diagnostic, the environment interface, bandits | A small experiment you can interpret |
-| 2. Tabular RL | MDPs, DP, MC, TD, control, importance sampling, Dyna | Correct implementations, and an explanation of what separates them |
+| 1. Readiness and orientation | Maths diagnostic, the environment interface | A small experiment you can interpret |
+| 2. Tabular RL | Bandits, MDPs, DP, MC, TD, control, importance sampling, Dyna | Correct implementations, and an explanation of what separates them |
 | 3. Approximation and deep value learning | Function approximation, the deadly triad, DQN, Double DQN | A debugged agent and a controlled ablation |
 | 4. Policy optimisation | REINFORCE, actor-critic, GAE, entropy/KL, PPO, continuous control, SAC | Reproducible experiments under a protocol you wrote first |
 | 5. Research sampler | Short introductions to exploration, models, offline RL, imitation | A reasoned choice of one direction |
