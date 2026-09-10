@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Hammersmith_One } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const hammersmith = Hammersmith_One({
@@ -31,6 +32,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${hammersmith.variable} h-full antialiased`}>
       <body className="h-full">{children}</body>
+      <Script
+        src="https://umami.subeenregmi.com/script.js"
+        data-website-id="d0c56b67-bb95-4bb3-ab32-4691377ead68"
+        strategy="afterInteractive"
+      />
+      <Script
+        src="https://umami.subeenregmi.com/recorder.js"
+        data-website-id="d0c56b67-bb95-4bb3-ab32-4691377ead68"
+        strategy="afterInteractive"
+      />
     </html>
   );
 }
