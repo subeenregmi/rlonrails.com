@@ -191,6 +191,10 @@ export const CURRICULUM: Curriculum = {
           598
         ],
         [
+          1118,
+          598
+        ],
+        [
           1430,
           598
         ],
@@ -303,6 +307,37 @@ export const CURRICULUM: Curriculum = {
               "kind": "video",
               "label": "Silver lecture 1: Introduction to Reinforcement Learning",
               "url": "https://www.youtube.com/watch?v=2pWv7GOvuf0"
+            }
+          ]
+        },
+        {
+          "id": "p0-dl",
+          "name": "Deep learning",
+          "title": "Deep-learning readiness",
+          "meta": "Backprop, convnets, and a training loop you can debug",
+          "tag": "core",
+          "idea": "Automatic differentiation, optimisers and their schedules, convolutional and recurrent nets, normalisation, and a training loop you have written yourself. A diagnostic like the maths check rather than a course: test yourself and refresh only what fails.",
+          "fwd": "Phase 2 asks you to put a convnet where the Q-table was and debug it when it does not learn. Nothing on this map teaches that part.",
+          "outcome": "Write a training loop from scratch, read a loss curve, and tell a broken implementation apart from a badly tuned one before any of it is wrapped in an agent.",
+          "resources": [
+            {
+              "id": "p0-dl:1",
+              "kind": "book",
+              "label": "Dive into Deep Learning (chs. 3\u20137: MLPs, optimisation, convnets)",
+              "url": "https://d2l.ai/"
+            },
+            {
+              "id": "p0-dl:2",
+              "kind": "site",
+              "label": "PyTorch: Learn the Basics",
+              "url": "https://docs.pytorch.org/tutorials/beginner/basics/intro.html"
+            },
+            {
+              "id": "p0-dl:3",
+              "kind": "course",
+              "label": "CS231n (convnets, if the vision half is the gap)",
+              "url": "https://cs231n.stanford.edu/",
+              "role": "optional"
             }
           ]
         },
@@ -479,10 +514,10 @@ export const CURRICULUM: Curriculum = {
       "short": "Foundations",
       "phase": "Phase 1",
       "tfl": "central",
-      "goal": "Tabular RL end to end, with an exercise after each idea. Read a station, then do the exercise that follows it before moving on.",
+      "goal": "Tabular RL end to end, from bandits to policy gradients, with an exercise after each idea. Read a station, then do the exercise that follows it before moving on.",
       "path": [
         [
-          390,
+          286,
           988
         ],
         [
@@ -491,6 +526,10 @@ export const CURRICULUM: Curriculum = {
         ]
       ],
       "snap": [
+        [
+          286,
+          988
+        ],
         [
           390,
           988
@@ -561,6 +600,48 @@ export const CURRICULUM: Curriculum = {
         "side": "above"
       },
       "stations": [
+        {
+          "id": "p8-bandits",
+          "name": "Bandits",
+          "title": "UCB, Thompson Sampling, Bandit Algorithms",
+          "meta": "Auer et al. 2002; Jaksch, Ortner & Auer 2010; Lattimore & Szepesvári 2020",
+          "tag": "core",
+          "idea": "Regret in the one-state case: optimism (UCB) and posterior sampling (Thompson). Lattimore & Szepesvari is the companion book. Regret in unknown MDPs is a separate problem — it lives on the Exploration track.",
+          "fwd": "Foundational to exploration. UCRL2 extends this from bandits to unknown MDPs.",
+          "outcome": "Derive the UCB bonus, implement UCB and Thompson sampling, and plot cumulative regret against a fixed baseline.",
+          "landmark": true,
+          "resources": [
+            {
+              "id": "p8-bandits:1",
+              "kind": "paper",
+              "label": "Auer et al. 2002, UCB",
+              "url": "https://doi.org/10.1023/A:1013689704352"
+            },
+            {
+              "id": "p8-bandits:3",
+              "kind": "book",
+              "label": "Lattimore & Szepesvári, Bandit Algorithms (PDF)",
+              "url": "https://tor-lattimore.com/downloads/book/book.pdf",
+              "role": "optional"
+            },
+            {
+              "id": "p8-bandits:4",
+              "kind": "video",
+              "label": "Silver lecture 9: Exploration and Exploitation",
+              "url": "https://www.youtube.com/watch?v=sGuiWX07sKw",
+              "from": "p0-silver",
+              "role": "pick"
+            },
+            {
+              "id": "p8-bandits:5",
+              "kind": "video",
+              "label": "CS234 lecture 11: Exploration 1",
+              "url": "https://www.youtube.com/watch?v=sqYii3nd78w",
+              "from": "p0-cs234",
+              "role": "pick"
+            }
+          ]
+        },
         {
           "id": "p1-dp",
           "name": "MDPs & DP",
@@ -1729,10 +1810,17 @@ export const CURRICULUM: Curriculum = {
           "title": "Bigger, Better, Faster",
           "meta": "Schwarzer et al., ICML 2023",
           "tag": "track",
-          "idea": "IQM human-normalised 1.045 on Atari 100K in about 10 GPU hours. Scaled Impala-CNN, high replay ratio, periodic soft resets, annealed n-step returns.",
+          "idea": "IQM human-normalised 1.045 on Atari 100K in about 10 GPU hours. Scaled Impala-CNN, high replay ratio, periodic soft resets, annealed n-step returns, and SPR's self-predictive loss underneath. Read SPR (Representation learning) first if you have not.",
           "fwd": "The reference point for how good value-based RL can be with little data.",
           "landmark": true,
           "resources": [
+            {
+              "id": "p2-bbf:0",
+              "kind": "paper",
+              "label": "SPR (the representation BBF builds on)",
+              "url": "https://arxiv.org/abs/2007.05929",
+              "role": "optional"
+            },
             {
               "id": "p2-bbf:1",
               "kind": "paper",
@@ -1750,9 +1838,11 @@ export const CURRICULUM: Curriculum = {
           "idea": "Add Double DQN and two more components of your choice to your own agent, one at a time, on a fixed interaction budget, and report the result with uncertainty rather than one curve per variant.",
           "fwd": "The first experiment on this map that looks like a paper's ablation table.",
           "outcome": "Run and report a multi-variant ablation whose conclusion survives the seed noise.",
+          "always": true,
           "prereqs": [
             "p2-ddqn",
-            "p1e-protocol"
+            "p1e-protocol",
+            "p7-rliable"
           ],
           "deliverables": [
             {
@@ -1847,6 +1937,10 @@ export const CURRICULUM: Curriculum = {
         ],
         [
           1612,
+          1560
+        ],
+        [
+          1521,
           1560
         ],
         [
@@ -2103,6 +2197,24 @@ export const CURRICULUM: Curriculum = {
           ]
         },
         {
+          "id": "p7-details",
+          "name": "37 details of PPO",
+          "title": "The 37 Implementation Details of PPO",
+          "meta": "Huang et al., ICLR 2022 Blog Track",
+          "tag": "core",
+          "idea": "Every implementation detail that changes PPO results.",
+          "fwd": "Practical companion to Phase 3.",
+          "outcome": "Audit a PPO implementation against the list and say which details your version omits and what each omission costs.",
+          "resources": [
+            {
+              "id": "p7-details:1",
+              "kind": "blog",
+              "label": "The 37 Implementation Details of PPO",
+              "url": "https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/"
+            }
+          ]
+        },
+        {
           "id": "p3-ppo",
           "name": "PPO",
           "title": "Proximal Policy Optimization",
@@ -2143,7 +2255,8 @@ export const CURRICULUM: Curriculum = {
           "outcome": "Get PPO working on a continuous-control task and state its result with a reproducible protocol rather than a remembered number.",
           "prereqs": [
             "p3-ppo",
-            "p1e-protocol"
+            "p1e-protocol",
+            "p7-details"
           ],
           "deliverables": [
             {
@@ -2340,7 +2453,8 @@ export const CURRICULUM: Curriculum = {
           "outcome": "Compare three closely related algorithms fairly, and attribute differences to specific implementation choices.",
           "prereqs": [
             "p3-sac",
-            "p3-td3"
+            "p3-td3",
+            "p7-rliable"
           ],
           "deliverables": [
             {
@@ -2383,7 +2497,7 @@ export const CURRICULUM: Curriculum = {
       "short": "Evaluation",
       "phase": "Phase 7",
       "tfl": "overground",
-      "goal": "How results are established and reported. Read this early and keep coming back: it decides whether your own experiments are worth anything.",
+      "goal": "How results are established and reported. Read it before your first deep agent, on the tabular runs you already have, and keep coming back: it decides whether your own experiments are worth anything.",
       "from": "p2-per",
       "path": [
         [
@@ -2426,10 +2540,6 @@ export const CURRICULUM: Curriculum = {
         [
           3445,
           1300
-        ],
-        [
-          3354,
-          1586
         ],
         [
           3120,
@@ -2561,24 +2671,6 @@ export const CURRICULUM: Curriculum = {
           ]
         },
         {
-          "id": "p7-details",
-          "name": "37 details of PPO",
-          "title": "The 37 Implementation Details of PPO",
-          "meta": "Huang et al., ICLR 2022 Blog Track",
-          "tag": "core",
-          "idea": "Every implementation detail that changes PPO results.",
-          "fwd": "Practical companion to Phase 3.",
-          "outcome": "Audit a PPO implementation against the list and say which details your version omits and what each omission costs.",
-          "resources": [
-            {
-              "id": "p7-details:1",
-              "kind": "blog",
-              "label": "The 37 Implementation Details of PPO",
-              "url": "https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/"
-            }
-          ]
-        },
-        {
           "id": "p7-x-report",
           "name": "Report it",
           "title": "Re-report a comparison you already ran",
@@ -2588,7 +2680,8 @@ export const CURRICULUM: Curriculum = {
           "fwd": "The last step before the investigation line, where you produce evidence nobody asked you for.",
           "outcome": "Turn a set of runs into a figure and a paragraph that would survive review.",
           "prereqs": [
-            "p7-rliable"
+            "p7-rliable",
+            "p1e-x-study"
           ],
           "deliverables": [
             {
@@ -3224,8 +3317,9 @@ export const CURRICULUM: Curriculum = {
           "idea": "Implement UCT for Connect Four and measure playing strength against simulation count. Then, if you want the full picture, replace the rollouts with a small trained network.",
           "fwd": "Makes AlphaZero and MuZero concrete instead of impressive.",
           "outcome": "Explain exactly what the learned network replaces in plain MCTS, having built both.",
+          "always": true,
           "prereqs": [
-            "p4-alphazero"
+            "p4-mcts"
           ],
           "deliverables": [
             {
@@ -4539,7 +4633,7 @@ export const CURRICULUM: Curriculum = {
       "short": "LLM RL",
       "phase": "Phase 5",
       "tfl": "elizabeth",
-      "goal": "Preference-based RL, RLHF, direct alignment and verifiable-reward reasoning RL. InstructGPT, DPO and GRPO are core; the rest is a specialisation, not a prerequisite for other tracks.",
+      "goal": "Preference-based RL, RLHF, direct alignment and verifiable-reward reasoning RL. Christiano, InstructGPT, DPO, GRPO and RLVR are core; the rest is a specialisation, not a prerequisite for other tracks. The language-model half \u2014 tokenised sequences, pretraining, supervised fine-tuning \u2014 is assumed here rather than taught, so bring it with you.",
       "track": true,
       "from": "p3-x-continuous",
       "path": [
@@ -4656,7 +4750,7 @@ export const CURRICULUM: Curriculum = {
           "name": "RL from preferences",
           "title": "Deep RL from Human Preferences",
           "meta": "Christiano et al., NeurIPS 2017",
-          "tag": "track",
+          "tag": "core",
           "idea": "Learn a reward model from pairwise trajectory comparisons, then optimise with RL. The intellectual root of RLHF.",
           "fwd": "Everything on this line.",
           "landmark": true,
@@ -4698,7 +4792,7 @@ export const CURRICULUM: Curriculum = {
           "title": "Training language models to follow instructions with human feedback",
           "meta": "Ouyang et al., NeurIPS 2022",
           "tag": "core",
-          "idea": "The three-stage recipe: SFT, reward model, PPO. Non-negotiable.",
+          "idea": "The three-stage recipe: supervised fine-tuning on demonstrations (SFT), a reward model fit to human preferences, then PPO against that reward with a KL penalty back to the SFT policy. Non-negotiable.",
           "fwd": "The template behind ChatGPT and all subsequent LLM RL.",
           "outcome": "Draw the three-stage pipeline and say what data each stage needs.",
           "landmark": true,
@@ -4856,6 +4950,23 @@ export const CURRICULUM: Curriculum = {
           ]
         },
         {
+          "id": "p5-rlvr",
+          "name": "RLVR",
+          "title": "RL with Verifiable Rewards",
+          "meta": "Term popularised by Lambert et al., Tülu 3, 2024",
+          "tag": "core",
+          "idea": "Use automatically checkable correctness (math answer, unit tests) as reward.",
+          "fwd": "The concept behind every reasoning-RL recipe.",
+          "resources": [
+            {
+              "id": "p5-rlvr:1",
+              "kind": "paper",
+              "label": "Tülu 3",
+              "url": "https://arxiv.org/abs/2411.15124"
+            }
+          ]
+        },
+        {
           "id": "p5-r1",
           "name": "DeepSeek-R1",
           "title": "DeepSeek-R1",
@@ -4870,23 +4981,6 @@ export const CURRICULUM: Curriculum = {
               "kind": "paper",
               "label": "DeepSeek-R1",
               "url": "https://arxiv.org/abs/2501.12948"
-            }
-          ]
-        },
-        {
-          "id": "p5-rlvr",
-          "name": "RLVR",
-          "title": "RL with Verifiable Rewards",
-          "meta": "Term popularised by Lambert et al., Tülu 3, 2024",
-          "tag": "track",
-          "idea": "Use automatically checkable correctness (math answer, unit tests) as reward.",
-          "fwd": "The concept behind every reasoning-RL recipe.",
-          "resources": [
-            {
-              "id": "p5-rlvr:1",
-              "kind": "paper",
-              "label": "Tülu 3",
-              "url": "https://arxiv.org/abs/2411.15124"
             }
           ]
         },
@@ -5161,10 +5255,17 @@ export const CURRICULUM: Curriculum = {
           "title": "Distributed Prioritized Experience Replay",
           "meta": "Horgan et al., ICLR 2018",
           "tag": "track",
-          "idea": "Hundreds of actors, one shared prioritised buffer, one learner.",
+          "idea": "Hundreds of actors, one shared prioritised buffer, one learner. It assumes prioritised replay: read PER (Value-based deep RL) first if you have not.",
           "fwd": "The distributed-RL mental model.",
           "landmark": true,
           "resources": [
+            {
+              "id": "p7-apex:0",
+              "kind": "paper",
+              "label": "Prioritized Experience Replay (assumed)",
+              "url": "https://arxiv.org/abs/1511.05952",
+              "role": "optional"
+            },
             {
               "id": "p7-apex:1",
               "kind": "paper",
@@ -5229,7 +5330,7 @@ export const CURRICULUM: Curriculum = {
       "short": "Theory",
       "phase": "Phase 8",
       "tfl": "northern",
-      "goal": "Where the guarantees come from. Bandits are for everyone; the rest is a specialisation.",
+      "goal": "Where the guarantees come from. Bandit regret is on the Foundations line, where it is read early; this line is the depth behind it, taken to taste.",
       "track": true,
       "path": [
         [
@@ -5265,10 +5366,6 @@ export const CURRICULUM: Curriculum = {
       "snap": [
         [
           806,
-          156
-        ],
-        [
-          806,
           507
         ],
         [
@@ -5290,48 +5387,6 @@ export const CURRICULUM: Curriculum = {
         "anchor": "start"
       },
       "stations": [
-        {
-          "id": "p8-bandits",
-          "name": "Bandits",
-          "title": "UCB, Thompson Sampling, Bandit Algorithms",
-          "meta": "Auer et al. 2002; Jaksch, Ortner & Auer 2010; Lattimore & Szepesvári 2020",
-          "tag": "core",
-          "idea": "Regret in the one-state case: optimism (UCB) and posterior sampling (Thompson). Lattimore & Szepesvari is the companion book. Regret in unknown MDPs is a separate problem — it lives on the Exploration track.",
-          "fwd": "Foundational to exploration. UCRL2 extends this from bandits to unknown MDPs.",
-          "outcome": "Derive the UCB bonus, implement UCB and Thompson sampling, and plot cumulative regret against a fixed baseline.",
-          "landmark": true,
-          "resources": [
-            {
-              "id": "p8-bandits:1",
-              "kind": "paper",
-              "label": "Auer et al. 2002, UCB",
-              "url": "https://doi.org/10.1023/A:1013689704352"
-            },
-            {
-              "id": "p8-bandits:3",
-              "kind": "book",
-              "label": "Lattimore & Szepesvári, Bandit Algorithms (PDF)",
-              "url": "https://tor-lattimore.com/downloads/book/book.pdf",
-              "role": "optional"
-            },
-            {
-              "id": "p8-bandits:4",
-              "kind": "video",
-              "label": "Silver lecture 9: Exploration and Exploitation",
-              "url": "https://www.youtube.com/watch?v=sGuiWX07sKw",
-              "from": "p0-silver",
-              "role": "pick"
-            },
-            {
-              "id": "p8-bandits:5",
-              "kind": "video",
-              "label": "CS234 lecture 11: Exploration 1",
-              "url": "https://www.youtube.com/watch?v=sqYii3nd78w",
-              "from": "p0-cs234",
-              "role": "pick"
-            }
-          ]
-        },
         {
           "id": "p8-szepesvari",
           "name": "Szepesvári",
@@ -6138,9 +6193,9 @@ export const CURRICULUM: Curriculum = {
     "p0",
     "p1",
     "p1e",
+    "p7",
     "p2",
     "p3",
-    "p7",
     "p6a",
     "p4",
     "p6b",
@@ -6159,7 +6214,7 @@ export const CURRICULUM: Curriculum = {
     {
       "id": "s1",
       "title": "Readiness & orientation",
-      "content": "Mathematical checks, the environment interface, bandits.",
+      "content": "Mathematical checks and the environment interface.",
       "evidence": "A small experiment you can interpret.",
       "lines": [
         "p0"
@@ -6168,7 +6223,7 @@ export const CURRICULUM: Curriculum = {
     {
       "id": "s2",
       "title": "Tabular RL",
-      "content": "MDPs, dynamic programming, Monte Carlo, TD, control, Dyna.",
+      "content": "Bandits, MDPs, dynamic programming, Monte Carlo, TD, control, Dyna.",
       "evidence": "Correct implementations, and an explanation of what separates them.",
       "lines": [
         "p1"
@@ -6289,3 +6344,13 @@ export function findResource(curriculum: Curriculum, resourceId: string): LogEnt
 
 export const findLine = (curriculum: Curriculum, id: string): Line | undefined =>
   curriculum.lines.find((line) => line.id === id);
+
+/**
+ * The lines in the order the route rides them: the spine in order, then anything
+ * left off it. Every list that says it is showing the journey reads off this, so
+ * the strip and the recommendation cannot disagree about what comes next.
+ */
+export const rideOrder = (curriculum: Curriculum): Line[] => [
+  ...curriculum.spineOrder.map((id) => findLine(curriculum, id)).filter((l): l is Line => Boolean(l)),
+  ...curriculum.lines.filter((l) => !curriculum.spineOrder.includes(l.id)),
+];
