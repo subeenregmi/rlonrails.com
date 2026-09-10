@@ -7,12 +7,13 @@ import { XMarkIcon } from "@heroicons/react/20/solid";
 import { Heatmap } from "./Heatmap";
 import { Roundel } from "./Roundel";
 import { readDays, streaks } from "@/lib/activity";
-import { CURRICULUM } from "@/lib/curriculum";
+import { CURRICULUM, rideOrder } from "@/lib/curriculum";
 import { lineProgress, lineTally, totals, type Progress } from "@/lib/progress";
 import { progressStore } from "@/lib/storage";
 import { TFL_COLOURS, isLightLine } from "@/lib/tfl";
 
 const card = "rounded-2xl bg-surface shadow-[0_10px_30px_rgba(0,0,0,.08)]";
+const RIDE_LINES = rideOrder(CURRICULUM);
 
 export function JourneyContent({ progress, onClose }: { progress: Progress; onClose?: () => void }) {
   const sums = totals(CURRICULUM, progress);
@@ -89,7 +90,7 @@ export function JourneyContent({ progress, onClose }: { progress: Progress; onCl
       <section className={`p-4 sm:p-6 ${card}`}>
         <h2 className="mb-3 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Lines</h2>
         <ul className="flex flex-col gap-1">
-          {CURRICULUM.lines.map((line) => {
+          {RIDE_LINES.map((line) => {
             const tally = lineTally(lineProgress(line, progress));
             const colour = TFL_COLOURS[line.tfl];
             return (
