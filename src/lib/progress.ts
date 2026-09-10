@@ -357,6 +357,9 @@ export interface Totals {
   trackTotal: number;
   exerciseRead: number;
   exerciseTotal: number;
+  /** Never on any route, so the route count and the map count differ by these. */
+  referenceRead: number;
+  referenceTotal: number;
   routeRead: number;
   routeTotal: number;
   implemented: number;
@@ -368,7 +371,7 @@ export interface Totals {
 export function totals(curriculum: Curriculum, progress: Progress): Totals {
   const t: Totals = {
     read: 0, reading: 0, total: 0, coreRead: 0, coreTotal: 0, trackRead: 0, trackTotal: 0,
-    exerciseRead: 0, exerciseTotal: 0, routeRead: 0, routeTotal: 0, implemented: 0, investigated: 0,
+    exerciseRead: 0, exerciseTotal: 0, referenceRead: 0, referenceTotal: 0, routeRead: 0, routeTotal: 0, implemented: 0, investigated: 0,
     resourcesDone: 0, resourcesTotal: 0,
   };
   for (const line of curriculum.lines) {
@@ -382,6 +385,7 @@ export function totals(curriculum: Curriculum, progress: Progress): Totals {
       if (progressFor.skills.includes("investigated")) t.investigated++;
       if (station.tag === "core") { t.coreTotal++; if (read) t.coreRead++; }
       if (station.tag === "exercise") { t.exerciseTotal++; if (read) t.exerciseRead++; }
+      if (station.tag === "reference") { t.referenceTotal++; if (read) t.referenceRead++; }
       if (station.tag === "track" && isOnRoute(station, line, progress.tracks)) { t.trackTotal++; if (read) t.trackRead++; }
       if (isOnRoute(station, line, progress.tracks)) { t.routeTotal++; if (read) t.routeRead++; }
       for (const resource of station.resources) {

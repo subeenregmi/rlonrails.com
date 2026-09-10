@@ -52,6 +52,7 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
   // larger than a phone screen — five seconds at a dozen frames a second.
   const lite = useMemo(() => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches, []);
   const mapRef = useRef<TubeMapHandle>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const colours = useMemo(() => Object.fromEntries(CURRICULUM.lines.map((l) => [l.id, TFL_COLOURS[l.tfl]])), []);
 
   useEffect(() => {
@@ -346,11 +347,14 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
             trainCount={trainCount}
             intro={intro && !lite}
             lite={lite}
+            panelRef={panelRef}
+            panelOpen={Boolean(selected || pinnedLine)}
             onSelect={(id) => select(id)}
             onPinLine={(id) => { setPinnedLineId(id); if (id) mapRef.current?.flyToLine(id); }}
           />
         </section>
         <StationPanel
+          ref={panelRef}
           view={panelView}
           progress={progress}
           saveError={saveError}

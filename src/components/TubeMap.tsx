@@ -1,8 +1,8 @@
 "use client";
 
-import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type RefObject } from "react";
 import { CURRICULUM, MAP_BOUNDS, START_VIEW, ZONES, type Line, type PillPoint, type Station } from "@/lib/curriculum";
-import { INTERCHANGE_RADIUS, RIVER, STATION_RADIUS, coastRings, coastWaves, lineBounds, riverCrossings, surfaceGeometry, type IntroSchedule, type LineLayout, type MapLayout, type Pt, type Surface } from "@/lib/geometry";
+import { INTERCHANGE_RADIUS, RIVER, STATION_RADIUS, coastRings, coastWaves, lineBounds, riverCrossings, surfaceGeometry, terminusPoint, type IntroSchedule, type LineLayout, type MapLayout, type Pt, type Surface } from "@/lib/geometry";
 import { dashArray, isRead, statusOf, type Interval, type Progress, type Status } from "@/lib/progress";
 import { isLightLine } from "@/lib/tfl";
 import { cx } from "@/lib/cx";
@@ -32,12 +32,18 @@ interface TubeMapProps {
   intro: boolean;
   /** Touch devices skip the drawn intro: shorter opening flight, trains appear sooner. */
   lite: boolean;
+  /** The side panel, which covers the right of the map while it is open. */
+  panelRef: RefObject<HTMLElement | null>;
+  panelOpen: boolean;
   onSelect: (id: string | null) => void;
   onPinLine: (id: string | null) => void;
 }
 
 const MIN_VIEW_W = 420;
 const MAX_VIEW_SCALE = 1.15;
+// Past this the panel is the whole screen, and there is no map beside it to keep clear.
+const MAX_HIDDEN = 0.75;
+const NUDGE_MARGIN = 24;
 const WORLD_PAD = 40;
 type Bounds = { x: number; y: number; w: number; h: number };
 const worldOf = (polygon: Pt[]): Bounds => {
@@ -55,10 +61,13 @@ const GLIDE_FRICTION = 0.93;
 const GLIDE_MIN_SPEED = 0.02;
 const GLIDE_MAX_SPEED = 6;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-const clampView = (v: View, world: Bounds) => {
+// The view may run past the world on the right by however much of it the
+// panel hides, so what is seen beside the panel is still held within the world.
+const clampView = (v: View, world: Bounds, hiddenW: number) => {
+  const seenW = v.w - hiddenW;
   const maxX = world.x + world.w;
   const maxY = world.y + world.h;
-  v.x = v.w >= world.w ? (world.x + maxX - v.w) / 2 : clamp(v.x, world.x, maxX - v.w);
+  v.x = seenW >= world.w ? world.x + (world.w - seenW) / 2 : clamp(v.x, world.x, maxX - seenW);
   v.y = v.h >= world.h ? (world.y + maxY - v.h) / 2 : clamp(v.y, world.y, maxY - v.h);
 };
 // Where a view of this size is allowed to sit; null once it outgrows the world,
@@ -308,7 +317,6 @@ interface TrackProps {
 }
 
 const TERMINUS_HALF = 13;
-const TERMINUS_REACH = 26;
 
 const Track = memo(function Track({ line, layout, schedule, colour, dash, frontier, readEnds, masked, dim }: TrackProps) {
   const l = layout.lines[line.id];
@@ -328,8 +336,7 @@ const Track = memo(function Track({ line, layout, schedule, colour, dash, fronti
       {l.termini.map((end, i) => {
         const nx = -end.tangent.y * TERMINUS_HALF;
         const ny = end.tangent.x * TERMINUS_HALF;
-        const bx = end.pt.x + end.tangent.x * end.outward * TERMINUS_REACH;
-        const by = end.pt.y + end.tangent.y * end.outward * TERMINUS_REACH;
+        const { x: bx, y: by } = terminusPoint(end);
         const style = { "--delay": `${(schedule.stationDelay[end.stationId] + 200).toFixed(0)}ms` } as React.CSSProperties;
         return (
           <g key={i}>
@@ -549,7 +556,7 @@ const LineLamps = memo(function LineLamps({ line, layout, schedule, statusKey, f
 const statusChar = (status: Status, complete: boolean) => (status === "read" ? (complete ? "c" : "r") : status === "reading" ? "g" : "u");
 
 export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
-  { layout, schedule, hereId, nextIds, completeIds, progress, colours, selectedId, focusLineId, trainCount, intro, lite, onSelect, onPinLine },
+  { layout, schedule, hereId, nextIds, completeIds, progress, colours, selectedId, focusLineId, trainCount, intro, lite, panelRef, panelOpen, onSelect, onPinLine },
   ref,
 ) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -565,6 +572,9 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   const pointersRef = useRef(new Map<number, Pt>());
   const pinchRef = useRef<{ dist: number; mid: Pt } | null>(null);
   const rectRef = useRef<DOMRect | null>(null);
+  const hiddenRef = useRef(0);
+  const panelOpenRef = useRef(panelOpen);
+  useEffect(() => { panelOpenRef.current = panelOpen; }, [panelOpen]);
   const shieldRef = useRef<HTMLDivElement>(null);
   const setDragging = useCallback((on: boolean) => {
     shieldRef.current?.classList.toggle("hidden", !on);
@@ -589,6 +599,14 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     return rectRef.current;
   }, []);
   const wrapRect = useCallback(() => rectRef.current ?? measureWrap(), [measureWrap]);
+  /** The fraction of the map's width under the open panel. */
+  const measureHidden = useCallback((open: boolean) => {
+    const panelW = open ? panelRef.current?.getBoundingClientRect().width ?? 0 : 0;
+    const fraction = panelW / wrapRect().width;
+    hiddenRef.current = fraction < MAX_HIDDEN ? fraction : 0;
+    return hiddenRef.current;
+  }, [panelRef, wrapRect]);
+  useEffect(() => { measureHidden(panelOpen); }, [panelOpen, measureHidden]);
   const aspect = useCallback(() => {
     const rect = wrapRect();
     return rect.width < 10 || rect.height < 10 ? 1.2 : rect.width / rect.height;
@@ -618,7 +636,7 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   const render = useCallback((settleSoon: boolean) => {
     const svg = svgRef.current;
     if (!svg) return;
-    if (!flightRef.current) clampView(pending.current, worldRef.current);
+    if (!flightRef.current) clampView(pending.current, worldRef.current, pending.current.w * hiddenRef.current);
     svg.classList.add("moving");
     // Wheel/pointer events can arrive faster than the display refresh rate.
     // Publish the view to the SVG, trains and minimap together when it paints.
@@ -670,7 +688,8 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     render(commitSoon);
   }, [render, aspect, clampWidth]);
 
-  const flyTo = useCallback((cx: number, cy: number, w: number, duration = 850) => {
+  /** Fly so that the point is centred, and the width shown, in the part of the map the panel leaves visible. */
+  const flyTo = useCallback((cx: number, cy: number, seenW: number, duration = 850) => {
     stopGlide();
     if (settleTimer.current !== null) { clearTimeout(settleTimer.current); settleTimer.current = null; }
     if (flightRef.current) cancelAnimationFrame(flightRef.current);
@@ -681,9 +700,10 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     // camera for as long as the view is wider than the world and then lurches
     // it through the rest of the pan, which is the dog-leg the intro showed.
     const b = worldRef.current;
-    const targetW = clampWidth(w);
+    const targetW = clampWidth(seenW / (1 - hiddenRef.current));
+    const hiddenW = targetW * hiddenRef.current;
     const target = {
-      cx: panCentre(cx, panRange(b.x, b.w, targetW), b.x + b.w / 2),
+      cx: panCentre(cx, panRange(b.x, b.w, targetW - hiddenW), b.x + b.w / 2) + hiddenW / 2,
       cy: panCentre(cy, panRange(b.y, b.h, targetW / aspect()), b.y + b.h / 2),
       w: targetW,
     };
@@ -733,16 +753,18 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     render(commitSoon);
   }, [render, aspect, toMap, clampWidth]);
 
+  const seenWidth = useCallback(() => pending.current.w * (1 - hiddenRef.current), []);
+
   useImperativeHandle(ref, () => ({
     flyToStation: (id) => {
       const s = layout.stations[id];
-      if (s) flyTo(s.pt.x, s.pt.y, Math.min(pending.current.w, 1500), 700);
+      if (s) flyTo(s.pt.x, s.pt.y, Math.min(seenWidth(), 1500), 700);
     },
     flyToLine: (id) => {
       const line = CURRICULUM.lines.find((l) => l.id === id);
       if (!line) return;
       const b = lineBounds(line, layout);
-      const w = Math.max(b.maxX - b.minX, (b.maxY - b.minY) * aspect(), 900);
+      const w = Math.max(b.maxX - b.minX, (b.maxY - b.minY) * aspect() * (1 - hiddenRef.current), 900);
       flyTo((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, w);
     },
     fitAll: () => fitAll(),
@@ -750,13 +772,28 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
       const rect = wrapRect();
       zoomAt(factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
     },
-  }), [layout, flyTo, fitAll, zoomAt, aspect, wrapRect]);
+  }), [layout, flyTo, fitAll, zoomAt, aspect, wrapRect, seenWidth]);
+
+  // A station picked on the map can be under the panel that opens for it:
+  // bring it into the part of the map the panel leaves visible.
+  useEffect(() => {
+    if (!selectedId || flightRef.current) return;
+    const s = layout.stations[selectedId];
+    const hidden = measureHidden(panelOpen);
+    if (!s || hidden === 0) return;
+    const rect = wrapRect();
+    const v = pending.current;
+    const screenX = ((s.pt.x - v.x) / v.w) * rect.width;
+    if (screenX < rect.width * (1 - hidden) - NUDGE_MARGIN) return;
+    flyTo(s.pt.x, s.pt.y, seenWidth(), 500);
+  }, [selectedId, panelOpen, layout, measureHidden, wrapRect, flyTo, seenWidth]);
 
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
     const keepAspect = () => {
       measureWrap();
+      measureHidden(panelOpenRef.current);
       if (flightRef.current) return;
       const v = pending.current;
       setViewCentered(v.x + v.w / 2, v.y + v.h / 2, v.w, false);
@@ -780,7 +817,7 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
       window.removeEventListener("scroll", measureWrap);
       window.visualViewport?.removeEventListener("resize", measureWrap);
     };
-  }, [setViewCentered, settle, flyTo, aspect, measureWrap, schedule.total, stopGlide, lite]);
+  }, [setViewCentered, settle, flyTo, aspect, measureWrap, measureHidden, schedule.total, stopGlide, lite]);
 
   useEffect(() => {
     const svg = svgRef.current;

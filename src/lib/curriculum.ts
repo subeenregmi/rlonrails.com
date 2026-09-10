@@ -73,6 +73,12 @@ export interface Line {
   phase: string;
   tfl: TflLine;
   goal: string;
+  /** What the phases before this one leave unsolved. */
+  problem: string;
+  /** The general solution this line teaches. */
+  approach: string;
+  /** What you can do once this line is done. */
+  outcome: string;
   /** A selectable specialisation rather than part of the spine everyone rides. */
   track?: boolean;
   closed?: boolean;
@@ -136,6 +142,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Phase 0",
       "tfl": "circle",
       "goal": "Courses and references to run in parallel with the reading. Do not read these end to end first.",
+      "problem": "You arrive with some maths, some deep learning and no shared vocabulary for RL. The reading ahead assumes conditional expectation, gradients through stochastic objectives, a training loop you can debug, and a rough idea of which course covers what.",
+      "approach": "Two diagnostics and a set of companions. Test yourself on the maths and deep-learning checks and refresh only what fails. Then meet the textbook, the lecture series and the reference code once, here, so that later stations can send you to a chapter, a lecture or a file without introducing it again.",
+      "outcome": "You know which gaps you have and have closed the ones that matter. You can open Sutton & Barto, a Silver lecture or a CleanRL file and know where it sits in the whole.",
       "closed": true,
       "path": [
         [
@@ -515,6 +524,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Phase 1",
       "tfl": "central",
       "goal": "Tabular RL end to end, from bandits to policy gradients, with an exercise after each idea. Read a station, then do the exercise that follows it before moving on.",
+      "problem": "Orientation gave you the vocabulary and the sources but no algorithms. Every deep method later on is a tabular idea plus a function approximator, and a reader who skipped the tabular version cannot tell which half of a deep agent is failing.",
+      "approach": "Tabular RL end to end: bandits and regret, MDPs and dynamic programming, Monte Carlo and TD estimation, Q-learning and SARSA for control, Dyna for planning, n-step returns and eligibility traces, then the two cliffs, partial observability and the deadly triad, and the first policy gradient. An exercise follows each idea so that the implementation, not the reading, is what gets checked.",
+      "outcome": "You can implement any tabular method from its update rule, predict how two of them will differ on a task before running them, and explain why bootstrapping, off-policy data and approximation are dangerous together.",
       "path": [
         [
           286,
@@ -1242,6 +1254,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Phase 1B",
       "tfl": "mildmay",
       "goal": "How to run an experiment that means something, starting with tabular ones. Read this alongside Phases 1 and 2 rather than after them.",
+      "problem": "By now you have tabular agents and learning curves. A single run tells you almost nothing: seeds alone move deep-RL results more than most method changes do, and a comparison made without a protocol is not evidence.",
+      "approach": "Seeds and spread first, then the paper that documented how fragile published results are, a protocol you write before the runs, a small study on the CliffWalking comparison you already have, and a fixed order for debugging an agent that does not learn.",
+      "outcome": "You can run a comparison whose conclusion survives someone else's rerun, and you check the usual bugs before you touch a hyperparameter.",
       "from": "p1-x-control",
       "path": [
         [
@@ -1447,6 +1462,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Phase 2",
       "tfl": "piccadilly",
       "goal": "Value-based deep RL, from DQN to the sample-efficient modern agents. Everyone needs DQN and Double DQN; the rest of the family is a specialisation.",
+      "problem": "Tabular methods stop at problems small enough to enumerate. Replacing the table with a network brings back all three legs of the deadly triad, and Phase 1 showed you what that does to a value estimate.",
+      "approach": "DQN's stabilisers, a convolutional net, experience replay and a target network around the Q-learning target, then the fixes and extensions: Double DQN for overestimation, prioritised replay, dueling heads, noisy exploration, distributional returns, Rainbow's ablation of all of them, and the recurrent, exploring and sample-efficient agents that followed. You build DQN yourself and ablate one component at a time.",
+      "outcome": "You have a DQN you wrote and debugged, an ablation with uncertainty on it, and a working sense of which extensions matter and which are noise at your budget.",
       "from": "p1-x-pg",
       "path": [
         [
@@ -1887,6 +1905,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Phase 3",
       "tfl": "district",
       "goal": "Policy optimisation from REINFORCE to PPO and SAC, plus the two entropy quantities the trust-region methods are built on.",
+      "problem": "Value methods pick actions by maximising over them, which fails for continuous actions and gives no direct control over how much the policy changes per update. Phase 1 left you with REINFORCE and its variance.",
+      "approach": "The policy-gradient theorem, then every way of taming the estimator: advantage actor-critic, GAE, entropy and KL as the quantities that measure a policy, trust regions in TRPO and their first-order approximation in PPO, the implementation details that decide whether PPO works, and the off-policy continuous-control family DDPG, TD3 and SAC. Two exercises: build PPO and audit it, then compare three continuous-control agents under one protocol.",
+      "outcome": "You can derive the clipped surrogate objective, implement PPO and SAC, and explain a difference between two policy-gradient runs from the code rather than from the plot.",
       "from": "p1-x-pg",
       "path": [
         [
@@ -2498,6 +2519,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Phase 7",
       "tfl": "overground",
       "goal": "How results are established and reported. Read it before your first deep agent, on the tabular runs you already have, and keep coming back: it decides whether your own experiments are worth anything.",
+      "problem": "Phase 1B taught you to respect the spread. Deep agents make it worse: more seeds cost more, budgets are easier to bend, and a mean over five runs hides most of what happened.",
+      "approach": "How an RL experiment is designed so that its conclusion holds: what to control and what to tune, how runs are compared, which benchmarks and protocols the field uses, and rliable's interval estimates, performance profiles and aggregate metrics. The exercise reports one earlier comparison the way a careful paper would.",
+      "outcome": "You can design, run and report a comparison with stated budgets and honest uncertainty, and you can tell when a published gap is not worth believing.",
       "from": "p2-per",
       "path": [
         [
@@ -2712,6 +2736,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Track 6A",
       "tfl": "victoria",
       "goal": "Intrinsic motivation and hard-exploration Atari.",
+      "problem": "Every agent so far explored by adding noise to its actions. On a task with sparse reward, Montezuma's Revenge or any long corridor, noise never finds the reward and the agent has nothing to learn from.",
+      "approach": "Intrinsic reward for novelty: pseudo-counts from density models, prediction error in a learned feature space (ICM) and against a fixed random network (RND), posterior-sampling exploration with ensembles, Go-Explore's remember-and-return, and the regret bounds that say what optimism buys in an unknown MDP.",
+      "outcome": "You can add an intrinsic reward to an existing agent, say which novelty signal suits a task and why, and recognise the noisy-TV failure when you see it.",
       "track": true,
       "from": "p3-a3c",
       "path": [
@@ -2741,7 +2768,7 @@ export const CURRICULUM: Curriculum = {
         ],
         [
           1950,
-          1014
+          1060
         ],
         [
           1950,
@@ -2901,6 +2928,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Phase 4",
       "tfl": "metropolitan",
       "goal": "Learned world models, background versus decision-time planning, and the AlphaGo to MuZero lineage. World Models and MCTS are for everyone; the rest is a specialisation.",
+      "problem": "Model-free agents pay for every step of experience. Dyna-Q in Phase 1 showed that a learned model can multiply that experience, and also how the model's errors compound over a rollout.",
+      "approach": "Learned dynamics with uncertainty (PILCO, PETS), latent world models and policies trained inside them (World Models, PlaNet, Dreamer, DreamerV3), short model rollouts that bound compounding error (MBPO), and decision-time planning: MCTS, AlphaGo to AlphaZero, and MuZero's search over a learned model. Two exercises: learn a latent model and measure how far ahead it stays trustworthy, and implement UCT for a game.",
+      "outcome": "You can train a policy in imagination against a model-free baseline at the same budget, implement tree search, and explain what MuZero learns that AlphaZero is given.",
       "track": true,
       "from": "p2-x-value",
       "path": [
@@ -3373,6 +3403,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Track 6B",
       "tfl": "weaver",
       "goal": "Learning from fixed datasets and the distributional-shift problem.",
+      "problem": "Everything so far assumed you can act in the environment. With a fixed dataset the agent cannot correct itself, and a Q-function queried on actions the data never took returns optimistic nonsense: the distributional-shift problem.",
+      "approach": "The tutorial that frames the problem, then the responses in order: constrain the policy to the data (BCQ), penalise out-of-distribution values (CQL), never query them (IQL), add a behaviour-cloning term (TD3+BC), and recast the problem as sequence modelling (Decision Transformer). Offline-to-online closes the loop.",
+      "outcome": "You can train an agent on a D4RL dataset, diagnose overestimation from unseen actions, and pick a conservatism mechanism suited to the data you have.",
       "track": true,
       "from": "p3-ddpg",
       "path": [
@@ -3624,6 +3657,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Track 6C",
       "tfl": "bakerloo",
       "goal": "Learning from demonstrations and recovering rewards.",
+      "problem": "Reward is the input every method so far has taken for granted. Many tasks have no reward you can write down but do have demonstrations of the behaviour you want.",
+      "approach": "Behaviour cloning and its compounding error, DAgger's interactive fix, MaxEnt IRL for recovering a reward under which the expert is optimal, GAIL for matching the expert's occupancy measure without a reward, and AIRL for a reward that transfers.",
+      "outcome": "You can train a policy from demonstrations, explain why cloning drifts and how DAgger stops it, and recover a reward you can hand to an RL agent.",
       "track": true,
       "from": "p3-npg",
       "path": [
@@ -3652,7 +3688,7 @@ export const CURRICULUM: Curriculum = {
           1495
         ],
         {
-          "through": "p7-details"
+          "through": "p7-rliable"
         }
       ],
       "snap": [
@@ -3673,7 +3709,7 @@ export const CURRICULUM: Curriculum = {
           1495
         ],
         [
-          3250,
+          3180,
           1495
         ]
       ],
@@ -3803,6 +3839,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Track 6D",
       "tfl": "jubilee",
       "goal": "Temporal abstraction and goals as inputs.",
+      "problem": "A flat policy acts one primitive step at a time and learns one task. Long horizons and families of related goals both defeat it: credit has to travel too far, and every new goal starts from nothing.",
+      "approach": "Temporal abstraction through options and their end-to-end learning (Option-Critic), manager-worker hierarchies (FeUdal Networks, HIRO), and goals as inputs: universal value functions and hindsight relabelling of failed trajectories (HER).",
+      "outcome": "You can add a goal input to a value function, relabel replay so that sparse binary rewards become learnable, and say when a hierarchy is worth its extra machinery.",
       "track": true,
       "from": "p3-pgtheorem",
       "path": [
@@ -3982,6 +4021,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Track 6E",
       "tfl": "hammersmith",
       "goal": "Many learners, credit assignment, and self-play at scale.",
+      "problem": "With more than one learner the environment stops being stationary: every other agent's policy is part of the dynamics, and it is changing too. Single-agent convergence arguments no longer apply.",
+      "approach": "Independent learning and its failure, centralised critics with decentralised actors (MADDPG), value factorisation (VDN, QMIX), counterfactual credit assignment (COMA), league self-play at scale (AlphaStar, OpenAI Five), and the game-theoretic line: CFR and PSRO.",
+      "outcome": "You can set up centralised training with decentralised execution, choose a credit-assignment scheme for a cooperative task, and explain what self-play needs so that it does not chase its own tail.",
       "track": true,
       "from": "p3-impala",
       "path": [
@@ -4196,6 +4238,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Track 6F",
       "tfl": "waterloo",
       "goal": "Learning to learn and in-context RL.",
+      "problem": "An agent trained on one task starts every new task from scratch, and one trained on one level of a game often cannot play the next. Nothing so far separates learning a task from learning how to learn tasks.",
+      "approach": "Learning to learn: an RNN that runs an RL algorithm in its activations (RL²), meta-learned initialisations (MAML), task inference on top of SAC (PEARL), algorithm distillation into a transformer, and Procgen as the benchmark that measures generalisation rather than memorisation.",
+      "outcome": "You can train an agent across a task distribution and measure adaptation on held-out tasks, and you can tell generalisation from memorisation on a benchmark.",
       "track": true,
       "from": "p3-trpo",
       "path": [
@@ -4371,6 +4416,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Track 6G",
       "tfl": "dlr",
       "goal": "Auxiliary tasks and augmentation for pixel RL.",
+      "problem": "Pixel input makes every method above slower and less stable: the agent has to learn what to see before it can learn what to do, from a reward signal too weak for the job.",
+      "approach": "Auxiliary losses that give the encoder more signal, UNREAL's prediction and control tasks, CURL's contrastive loss and SPR's latent-dynamics prediction, and the finding that simple image augmentation (RAD, DrQ) gets most of the benefit on its own.",
+      "outcome": "You can add an augmentation or an auxiliary loss to a pixel agent and measure what it buys, and you know which of them the sample-efficient Atari agents depend on.",
       "track": true,
       "from": "p3-sac",
       "path": [
@@ -4516,6 +4564,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Track 6H",
       "tfl": "tram",
       "goal": "If the thesis is embodied.",
+      "problem": "A policy trained in simulation meets a real robot whose dynamics, sensors and latencies the simulator did not model. The reality gap turns a solved task into a failed one.",
+      "approach": "Domain randomisation as the standard bridge, automatic randomisation at scale in the Rubik's Cube work, and DayDreamer's world-model learning directly on hardware.",
+      "outcome": "You can design a randomisation scheme for a simulator and argue about what it will and will not transfer.",
       "track": true,
       "from": "p3-ppo",
       "path": [
@@ -4634,6 +4685,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Phase 5",
       "tfl": "elizabeth",
       "goal": "Preference-based RL, RLHF, direct alignment and verifiable-reward reasoning RL. Christiano, InstructGPT, DPO, GRPO and RLVR are core; the rest is a specialisation, not a prerequisite for other tracks. The language-model half \u2014 tokenised sequences, pretraining, supervised fine-tuning \u2014 is assumed here rather than taught, so bring it with you.",
+      "problem": "Phase 3 gave you PPO with a reward you could write down. A language model's reward is a human preference or the correctness of an answer, and the policy is a model with billions of parameters held near a pretrained reference by a KL penalty.",
+      "approach": "Preference-based RL from Christiano through the InstructGPT recipe, direct alignment (DPO and its variants), then reasoning RL: GRPO's critic-free group baseline, verifiable rewards, the R1 and o1 results, the fixes in DAPO and Dr. GRPO, sequence-level and value-based alternatives, process rewards and agentic RL. Two exercises: train a reward model against DPO, and run GRPO with a rule-based reward.",
+      "outcome": "You can explain the three RLHF stages and what DPO removes, implement GRPO on a small model, and read a reasoning-RL paper knowing which of its choices carry the result.",
       "track": true,
       "from": "p3-x-continuous",
       "path": [
@@ -5210,6 +5264,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Phase 7B",
       "tfl": "liberty",
       "goal": "Throughput, for when a project genuinely needs it. Reference material: come back when your protocol asks for more runs than your machine can deliver.",
+      "problem": "A protocol written in Phase 7 can ask for more runs than one machine delivers, and most attempts to scale RL up reinvent the same handful of architectures badly.",
+      "approach": "Ape-X's many actors and one prioritised buffer, SEED RL's accelerator-side inference, and vectorised environments, which is what most small-scale distributed RL really needs.",
+      "outcome": "You can pick the throughput architecture a project actually needs, from batching environments on one GPU to actors on a cluster.",
       "track": true,
       "from": "p7-stats",
       "path": [
@@ -5331,6 +5388,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Phase 8",
       "tfl": "northern",
       "goal": "Where the guarantees come from. Bandit regret is on the Foundations line, where it is read early; this line is the depth behind it, taken to taste.",
+      "problem": "By now you have used TD, policy gradients and exploration bonuses on faith. Their guarantees exist, and knowing where they hold tells you when an algorithm's failure is a bug and when it is a theorem.",
+      "approach": "Szepesvári's compact overview, the theory monograph on sample complexity, PAC-MDP and exploration, and the convergence results for TD with function approximation and for policy gradients.",
+      "outcome": "You can state the conditions under which the core algorithms converge, and recognise which of them your agent violates.",
       "track": true,
       "path": [
         [
@@ -5478,6 +5538,9 @@ export const CURRICULUM: Curriculum = {
       "phase": "Phase 9",
       "tfl": "suffragette",
       "goal": "Turning implementation skill into research: pick a claim, reproduce a slice of it, explain the gap, and design an experiment that could prove you wrong.",
+      "problem": "You can implement and evaluate. Research asks a different question: whether a published claim holds, and why not when it does not.",
+      "approach": "One claim stated precisely enough to be wrong, a bounded reproduction of its evidence, a discrepancy resolved with evidence rather than a guess, a hypothesis with a competing explanation, a protocol written before the runs, and a short honest write-up. Six exercises, no reading.",
+      "outcome": "A report on a claim you tested yourself, with uncertainty, limitations and the negative results left in: the unit of work a research group deals in.",
       "from": "p7-x-report",
       "path": [
         [
@@ -5833,10 +5896,6 @@ export const CURRICULUM: Curriculum = {
       "p3-sac"
     ],
     [
-      "p7-details",
-      "p3-ppo"
-    ],
-    [
       "p4-dreamerv3",
       "p6h-daydreamer"
     ],
@@ -6138,10 +6197,6 @@ export const CURRICULUM: Curriculum = {
     ],
     [
       "p3-entropy",
-      "p3-trpo"
-    ],
-    [
-      "p3-entropy",
       "p3-sac"
     ],
     [
@@ -6151,10 +6206,6 @@ export const CURRICULUM: Curriculum = {
     [
       "p4-dyna",
       "p4-mbpo"
-    ],
-    [
-      "p4-mcts",
-      "p4-alphazero"
     ],
     [
       "p1e-debug",

@@ -50,6 +50,8 @@ export const CORNER_RADIUS = 46;
 export const LABEL_GAP = 20;
 export const STATION_RADIUS: Record<string, number> = { core: 10, exercise: 10, track: 9, reference: 8 };
 export const INTERCHANGE_RADIUS = 13;
+export const TERMINUS_REACH = 26;
+const TRACK_CLEARANCE = 8;
 const PILL_OFFSET = 56;
 const PILL_SIDE_OFFSET = 30;
 const DEFAULT_START_PAD = 80;
@@ -245,6 +247,20 @@ function pillPlacement(line: Line, positions: number[], pointAt: (s: number) => 
 
 const isThrough = (w: Waypoint): w is { through: string } => typeof w === "object" && !Array.isArray(w);
 
+/** Where a terminus bar would sit: on the tangent, just beyond the last station. */
+export const terminusPoint = (end: Terminus): Pt => add(end.pt, scale(end.tangent, end.outward * TERMINUS_REACH));
+
+const onAnotherTrack = (pt: Pt, owner: string, lines: Record<string, LineLayout>) =>
+  Object.values(lines).some((l) => l.id !== owner && len(sub(l.pointAt(l.posOf(pt)), pt)) < TRACK_CLEARANCE);
+
+/**
+ * A line that ends where another line's track carries on has no dead end to
+ * mark: its bar would sit across the other line's rails.
+ */
+function pruneTermini(lines: Record<string, LineLayout>) {
+  for (const l of Object.values(lines)) l.termini = l.termini.filter((end) => !onAnotherTrack(terminusPoint(end), l.id, lines));
+}
+
 function referenced(line: Line): string[] {
   const ids = line.path.filter(isThrough).map((w) => w.through);
   if (line.from) ids.unshift(line.from);
@@ -332,6 +348,7 @@ export function computeLayout(curriculum: Curriculum): MapLayout {
     });
   }
   moveJunctionLabels(curriculum, stations);
+  pruneTermini(lines);
   return { lines, stations, pills };
 }
 
