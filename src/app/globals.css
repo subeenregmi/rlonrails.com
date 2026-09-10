@@ -291,7 +291,7 @@ body.map-dragging {
   fill: var(--station-fill);
   stroke: var(--locked);
   stroke-width: 4;
-  transition: fill 0.35s, stroke 0.35s, transform 0.2s;
+  transition: fill 0.35s, stroke 0.35s, stroke-width 0.2s;
   transform-box: fill-box;
   transform-origin: center;
   stroke-dasharray: 101;
@@ -351,8 +351,11 @@ body.map-dragging {
   stroke-width: 5.5;
 }
 @media (hover: hover) {
+  /* A transform transition promotes the SVG station and splits the map into
+     large overlap layers, rebuilding them whenever the pointer changes stops.
+     Paint the hover emphasis in the existing map layer instead. */
   .station:hover .core {
-    transform: scale(1.18);
+    stroke-width: 5.5;
   }
 }
 @media (pointer: coarse) {
@@ -478,9 +481,11 @@ body.map-dragging {
   vector-effect: non-scaling-stroke;
   stroke-width: 1.7px;
   stroke-dasharray: 4.3px 5.2px;
-  opacity: 0;
+  /* These curves can span the whole curriculum even in a close-up. Fading
+     their strokes avoids a separate opacity layer per offscreen curve. */
+  stroke-opacity: 0;
   visibility: hidden;
-  transition: opacity 0.12s, stroke-width 0.3s, visibility 0s 0.12s;
+  transition: stroke-opacity 0.12s, stroke-width 0.3s, visibility 0s 0.12s;
   pointer-events: none;
   animation: march 1.2s linear infinite paused;
 }
@@ -488,9 +493,9 @@ body.map-dragging {
   stroke-width: 2.6px;
 }
 .link.active {
-  opacity: 1;
+  stroke-opacity: 1;
   visibility: visible;
-  transition: opacity 0.3s 0.12s, stroke-width 0.3s, visibility 0s;
+  transition: stroke-opacity 0.3s 0.12s, stroke-width 0.3s, visibility 0s;
   stroke-width: 3px;
   animation-play-state: running;
 }
