@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { CURRICULUM, findLine, findResource, findStation, logResources, type Line, type Station } from "@/lib/curriculum";
+import { CURRICULUM, findLine, findResource, findStation, isTrackLine, logResources, type Line, type Station } from "@/lib/curriculum";
 import { computeLayout, introSchedule } from "@/lib/geometry";
 import {
-  SKILLS, emptyProgress, isRead, isValidProgress, lineProgress, missingPrereqs, nextOnLine, nextStop, sanitizeProgress, stationProgress,
-  suggestStatus, totals,
+  SKILLS, chooseDue, emptyProgress, isRead, isValidProgress, lineProgress, missingPrereqs, nextOnLine, nextStop, sanitizeProgress,
+  stationProgress, suggestStatus, totals,
   type Progress, type Skill, type StationProgress, type Status,
 } from "@/lib/progress";
 import { cx } from "@/lib/cx";
@@ -18,6 +18,7 @@ import { progressStore, saveProgress } from "@/lib/storage";
 import { readDays } from "@/lib/activity";
 import { JourneyModal } from "./Journey";
 import { FloatingBar } from "./FloatingBar";
+import { TracksModal } from "./Tracks";
 import { TubeMap, type TubeMapHandle } from "./TubeMap";
 
 
@@ -37,6 +38,10 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
   const [dialog, setDialog] = useState<DialogMessage | null>(null);
   const [journeyOpen, setJourneyOpen] = useState(false);
   const closeJourney = useCallback(() => setJourneyOpen(false), []);
+  // Two ways in, and the copy differs: the map brings this up of its own accord
+  // at the end of the research sampler, and the menu opens it whenever the
+  // reader asks. Settling the question closes the first one for good.
+  const [tracksFromMenu, setTracksFromMenu] = useState(false);
   const closeDialog = useCallback(() => setDialog(null), []);
   const [saveError, setSaveError] = useState(false);
   const [intro, setIntro] = useState(true);
@@ -64,6 +69,10 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
   const pinnedLine = pinnedLineId ? findLine(CURRICULUM, pinnedLineId) ?? null : null;
   const progressByLine = useMemo(() => Object.fromEntries(CURRICULUM.lines.map((l) => [l.id, lineProgress(l, progress)])), [progress]);
   const sums = useMemo(() => totals(CURRICULUM, progress), [progress]);
+  // Held back until the map has finished drawing itself in, so the picker does
+  // not land on top of the opening flight.
+  const promptTracks = useMemo(() => !intro && chooseDue(CURRICULUM, progress), [progress, intro]);
+  const tracksShown = promptTracks || tracksFromMenu;
   const next = useMemo(() => {
     const station = nextStop(CURRICULUM, progress);
     return station ? findStation(CURRICULUM, station.id) : null;
@@ -101,6 +110,7 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
       stations: { ...current.stations, [station.id]: { ...nextValue, updatedAt: new Date().toISOString() } },
       resources: { ...current.resources },
       tracks: current.tracks,
+      tracksAt: current.tracksAt,
     };
     for (const [id, done] of Object.entries(resources ?? {})) {
       if (done) merged.resources[id] = true;
@@ -150,14 +160,30 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
     applyStation(station, line, { ...existing, skills });
   }, [applyStation]);
 
-  const toggleTrack = useCallback((lineId: string) => {
+  const setTracks = useCallback((tracks: string[], settled = false) => {
     const current = progressRef.current;
-    const tracks = current.tracks.includes(lineId) ? current.tracks.filter((id) => id !== lineId) : [...current.tracks, lineId];
-    const merged: Progress = { ...current, tracks };
+    const merged: Progress = { ...current, tracks, tracksAt: settled ? new Date().toISOString() : current.tracksAt };
     progressRef.current = merged;
     setProgress(merged);
     persist(merged);
   }, [persist]);
+
+  const toggleTrack = useCallback((lineId: string) => {
+    const { tracks } = progressRef.current;
+    setTracks(tracks.includes(lineId) ? tracks.filter((id) => id !== lineId) : [...tracks, lineId]);
+  }, [setTracks]);
+
+  const toggleAllTracks = useCallback(() => {
+    const ids = CURRICULUM.lines.filter(isTrackLine).map((l) => l.id);
+    setTracks(progressRef.current.tracks.length === ids.length ? [] : ids);
+  }, [setTracks]);
+
+  // Closing the picker is the answer, even when the answer is "none of them".
+  // Without that the map would ask again on every visit.
+  const closeTracks = useCallback(() => {
+    setTracks(progressRef.current.tracks, true);
+    setTracksFromMenu(false);
+  }, [setTracks]);
 
   const select = useCallback((id: string | null, fly = false) => {
     setSelectedId(id);
@@ -211,7 +237,7 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
   const markAllRead = () => {
     const now = new Date().toISOString();
     const current = progressRef.current;
-    const all: Progress = { stations: {}, resources: {}, tracks: CURRICULUM.lines.filter((l) => l.track).map((l) => l.id) };
+    const all: Progress = { stations: {}, resources: {}, tracks: CURRICULUM.lines.filter(isTrackLine).map((l) => l.id), tracksAt: now };
     for (const line of CURRICULUM.lines) {
       for (const station of line.stations) {
         const existing = stationProgress(current, station.id);
@@ -245,7 +271,7 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target;
-      if (dialog || journeyOpen || (target instanceof HTMLElement && target.matches("input"))) return;
+      if (dialog || journeyOpen || tracksShown || (target instanceof HTMLElement && target.matches("input"))) return;
       if (event.key === "Escape") { closePanel(); return; }
       if (!selected) return;
       const { station, line } = selected;
@@ -265,7 +291,7 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [selected, select, setStatus, dialog, journeyOpen, closePanel]);
+  }, [selected, select, setStatus, dialog, journeyOpen, tracksShown, closePanel]);
 
   const missing = useMemo(() => (selected ? missingPrereqs(CURRICULUM, selected.station, progress) : []), [selected, progress]);
 
@@ -299,7 +325,7 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
             onHoverLine={setHoverLineId}
             onPickLine={pickLine}
             tracks={progress.tracks}
-            onToggleTrack={toggleTrack}
+            onChooseTracks={() => setTracksFromMenu(true)}
             onExport={exportProgress}
             onImport={importProgress}
             onReset={resetProgress}
@@ -339,6 +365,14 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
       <Toast toast={toast} />
       <Dialog dialog={dialog} onClose={closeDialog} />
       <JourneyModal open={journeyOpen} progress={progress} onClose={closeJourney} />
+      <TracksModal
+        open={tracksShown}
+        prompted={promptTracks}
+        tracks={progress.tracks}
+        onToggle={toggleTrack}
+        onAll={toggleAllTracks}
+        onDone={closeTracks}
+      />
     </div>
   );
 }

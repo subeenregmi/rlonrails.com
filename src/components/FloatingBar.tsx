@@ -5,8 +5,9 @@ import type { Line } from "@/lib/curriculum";
 import { lineTally, type LineProgress, type Totals } from "@/lib/progress";
 import { TFL_COLOURS, isLightLine } from "@/lib/tfl";
 import { cx } from "@/lib/cx";
-import { CheckIcon, ChevronDownIcon, XMarkIcon } from "@heroicons/react/16/solid";
+import { ChevronDownIcon, XMarkIcon } from "@heroicons/react/16/solid";
 import { Roundel } from "./Roundel";
+import { Tick } from "./Tick";
 import { MiniHeatmap } from "./Heatmap";
 
 interface FloatingBarProps {
@@ -17,7 +18,7 @@ interface FloatingBarProps {
   focusLineId: string | null;
   days: Record<string, number>;
   tracks: string[];
-  onToggleTrack: (lineId: string) => void;
+  onChooseTracks: () => void;
   onJourney: () => void;
   onHoverLine: (id: string | null) => void;
   onPickLine: (id: string) => void;
@@ -47,10 +48,11 @@ function useCompact() {
 }
 
 export function FloatingBar(props: FloatingBarProps) {
-  const { totals, trainCount, lines, progressByLine, focusLineId, days, tracks, onToggleTrack, onJourney, onHoverLine, onPickLine, onExport, onImport, onReset, onSelectAll } = props;
+  const { totals, trainCount, lines, progressByLine, focusLineId, days, tracks, onChooseTracks, onJourney, onHoverLine, onPickLine, onExport, onImport, onReset, onSelectAll } = props;
   const [open, setOpen] = useState(false);
   const [barOpen, setBarOpen] = useState(false);
   const compact = useCompact();
+  const chosen = lines.filter((line) => tracks.includes(line.id));
   // A landscape phone has no room under the pill for a dropdown — it would open
   // a couple of centimetres tall — so there the menu becomes a modal over the
   // map instead, sized by the screen rather than by what is left below the bar.
@@ -141,7 +143,7 @@ export function FloatingBar(props: FloatingBarProps) {
                           inside it, so a long name is what gets clipped. */}
                       <div className="flex min-w-0 items-center gap-1.5 text-[13px] leading-tight">
                         <span className="truncate">{line.name}</span>
-                        {tally.complete && <CheckIcon className="h-3.5 w-3.5 flex-none" style={{ color: colour }} />}
+                        {tally.complete && <Tick className="h-3.5 w-3.5 flex-none" style={{ color: colour }} />}
                         {line.track && tracks.includes(line.id) && <span className="flex-none rounded-full bg-tint-strong px-1.5 py-px text-[9.5px] uppercase tracking-[0.06em] text-ink-soft">Chosen</span>}
                       </div>
                       <div className="truncate text-[10.5px] text-ink-faint">
@@ -180,24 +182,23 @@ export function FloatingBar(props: FloatingBarProps) {
             </div>
             <div>
               <h2 className="mb-1 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Your route</h2>
-              <p className="mb-2 text-[11.5px] leading-snug text-ink-faint">Core stations and the exercises on the spine are for everyone. Pick the specialisations you actually intend to do; their stations and exercises then count towards your route.</p>
-              <div className="flex flex-wrap gap-1.5">
-                {lines.filter((line) => line.track).map((line) => {
-                  const on = tracks.includes(line.id);
-                  return (
-                    <button
+              <p className="mb-2 text-[11.5px] leading-snug text-ink-faint">Core stations and the exercises on the spine are for everyone. Specialisations are the rest: choose the ones you mean to do and their stations join your route. The map asks once, after the research sampler.</p>
+              <div className="mb-2 flex flex-wrap gap-1">
+                {chosen.length === 0
+                  ? <span className="text-[11.5px] text-ink-faint">None chosen yet</span>
+                  : chosen.map((line) => (
+                    <span
                       key={line.id}
-                      type="button"
-                      onClick={() => onToggleTrack(line.id)}
-                      aria-pressed={on}
-                      className={cx("rounded-full border px-2.5 py-1 text-[12px] transition", on ? "border-transparent text-white" : "border-rule text-ink-soft hover:bg-tint")}
-                      style={on ? { background: TFL_COLOURS[line.tfl], color: isLightLine(line.tfl) ? "#1a1a1a" : "#fff" } : undefined}
+                      className="rounded-full px-2 py-px text-[11px]"
+                      style={{ background: TFL_COLOURS[line.tfl], color: isLightLine(line.tfl) ? "#1a1a1a" : "#fff" }}
                     >
                       {line.short}
-                    </button>
-                  );
-                })}
+                    </span>
+                  ))}
               </div>
+              <button type="button" className={tool} onClick={() => { fold(); onChooseTracks(); }}>
+                {chosen.length === 0 ? "Choose specialisations" : "Change specialisations"}
+              </button>
             </div>
             <div>
               <h2 className="mb-2 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Data</h2>

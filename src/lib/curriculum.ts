@@ -105,6 +105,8 @@ export interface Stage {
   content: string;
   /** What shows you are ready to move on. */
   evidence: string;
+  /** The reader picks their specialisations once this stage is done. */
+  choose?: boolean;
   lines: string[];
 }
 
@@ -1783,8 +1785,7 @@ export const CURRICULUM: Curriculum = {
               "label": "Arcade Learning Environment",
               "url": "https://github.com/Farama-Foundation/Arcade-Learning-Environment"
             }
-          ],
-          "always": true
+          ]
         }
       ],
       "track": true
@@ -6196,6 +6197,7 @@ export const CURRICULUM: Curriculum = {
       "title": "Research sampler",
       "content": "Short introductions to exploration, models, offline RL and imitation.",
       "evidence": "A reasoned choice of one direction.",
+      "choose": true,
       "lines": [
         "p6a",
         "p4",
@@ -6239,6 +6241,9 @@ export const CURRICULUM: Curriculum = {
 export const allStations = (curriculum: Curriculum): Station[] => curriculum.lines.flatMap((line) => line.stations);
 
 export const isTrackLine = (line: Line) => Boolean(line.track);
+
+/** The opening sentence of a line's goal, for lists that have room for one line. */
+export const lineSummary = (line: Line) => `${line.goal.split(". ")[0].replace(/\.$/, "")}.`;
 
 export const stationIds = (curriculum: Curriculum): Set<string> => new Set(allStations(curriculum).map((s) => s.id));
 export const resourceIds = (curriculum: Curriculum): Set<string> => new Set(allStations(curriculum).flatMap((s) => s.resources.map((r) => r.id)));

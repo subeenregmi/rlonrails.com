@@ -8,8 +8,9 @@ import {
 } from "@/lib/progress";
 import { TFL_COLOURS, textOn } from "@/lib/tfl";
 import { cx } from "@/lib/cx";
-import { ArrowLeftIcon, ArrowRightIcon, ArrowTopRightOnSquareIcon, CheckIcon, LockClosedIcon } from "@heroicons/react/16/solid";
+import { ArrowLeftIcon, ArrowRightIcon, ArrowTopRightOnSquareIcon, LockClosedIcon } from "@heroicons/react/16/solid";
 import { XMarkIcon } from "@heroicons/react/20/solid";
+import { Tick } from "./Tick";
 
 export interface Connection {
   station: Station;
@@ -321,7 +322,7 @@ function DeliverableList({ station, done, dels, colour, onToggle }: { station: S
                 className="mt-px flex h-5 w-5 flex-none items-center justify-center rounded-md border-2 text-white transition"
                 style={{ borderColor: colour, background: on ? colour : "var(--surface)" }}
               >
-                {on && <CheckIcon className="h-3 w-3" />}
+                {on && <Tick className="h-3 w-3" />}
               </button>
               <span className={cx("min-w-0 flex-1 text-[13.5px] leading-snug", on && "text-ink-soft")}>{deliverable.label}</span>
             </li>
@@ -369,7 +370,7 @@ function LogList({ log, resources, done, colour, onToggle, onSelect }: { log: Lo
     <>
       <h3 className="mt-5 mb-1.5 flex items-center gap-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">
         Across the map · {done} / {log.length}
-        {done === log.length && <CheckIcon className="h-3.5 w-3.5" style={{ color: colour }} />}
+        {done === log.length && <Tick className="h-3.5 w-3.5" style={{ color: colour }} />}
       </h3>
       <div className="mb-3 h-2 overflow-hidden rounded-full bg-bar">
         <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${(100 * done) / log.length}%`, background: colour }} />
@@ -409,7 +410,7 @@ function ResourceRow({ resource, done, colour, onToggle }: { resource: Resource;
         className="flex h-5 w-5 flex-none items-center justify-center rounded-full border-2 text-white transition"
         style={{ borderColor: colour, background: done ? colour : "var(--surface)" }}
       >
-        {done && <CheckIcon className="h-3 w-3" />}
+        {done && <Tick className="h-3 w-3" />}
       </button>
       <div className="min-w-0 flex-1">
         <a
