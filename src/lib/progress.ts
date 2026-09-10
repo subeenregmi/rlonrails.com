@@ -216,55 +216,64 @@ export const missingPrereqs = (curriculum: Curriculum, station: Station, progres
     .map((id) => findStation(curriculum, id)?.station)
     .filter((s): s is Station => Boolean(s));
 
-function latestWithStatus(progress: Progress, status: Status, stampOf: (s: StationProgress) => string | null): string | null {
-  let bestId: string | null = null;
-  let bestStamp = "";
-  for (const [id, station] of Object.entries(progress.stations)) {
-    if (station.status !== status) continue;
-    const stamp = stampOf(station) ?? "";
-    if (bestId !== null && stamp < bestStamp) continue;
-    bestId = id;
-    bestStamp = stamp;
-  }
-  return bestId;
-}
-
-/** The next station further down the line the reader was last on, if the route goes that way. */
-function onwardFrom(curriculum: Curriculum, stationId: string, progress: Progress): Station | null {
-  const found = findStation(curriculum, stationId);
-  if (!found) return null;
-  const index = found.line.stations.indexOf(found.station);
-  return found.line.stations
-    .slice(index + 1)
-    .find((s) => !isRead(progress, s.id) && isOnRoute(s, found.line, progress.tracks) && prereqsMet(s, progress))
-    ?? null;
+interface Stop {
+  station: Station;
+  line: Line;
 }
 
 /**
- * The next stop on the selected route: carry on down the current line where the
- * route does, otherwise take the first station the spine order offers whose
- * prerequisites are met. Off-route detours are never recommended, only reachable.
+ * The ride: every stop the selected route asks for, line by line in spine order.
+ * One list to walk, rather than a fresh scan of the whole map each time a line
+ * runs out.
+ */
+function ride(curriculum: Curriculum, tracks: string[]): Stop[] {
+  const place = (line: Line) => {
+    const at = curriculum.spineOrder.indexOf(line.id);
+    return at === -1 ? curriculum.spineOrder.length : at;
+  };
+  return [...curriculum.lines]
+    .sort((a, b) => place(a) - place(b))
+    .flatMap((line) => line.stations.filter((s) => isOnRoute(s, line, tracks)).map((station) => ({ station, line })));
+}
+
+/**
+ * How far along the ride the reader has got: the stop they finished most
+ * recently. Later stops win a tie, so an import — where every station can share
+ * one timestamp — leaves them at the far end of what they have read rather than
+ * wherever the file happened to list first.
+ */
+function positionOf(stops: Stop[], progress: Progress): number {
+  let at = 0;
+  let last = "";
+  stops.forEach((stop, index) => {
+    const entry = progress.stations[stop.station.id];
+    if (entry?.status !== "read" || (entry.readAt ?? "") < last) return;
+    at = index;
+    last = entry.readAt ?? "";
+  });
+  return at;
+}
+
+/**
+ * The next stop on the selected route, from wherever the reader last got to:
+ * on down the line they are on, back for anything left behind on it, and only
+ * then across to the next line. The marker moves along the route a stop at a
+ * time instead of hopping about the map, and a route with nothing left has no
+ * next stop at all — off-route stations are never recommended.
  */
 export function nextStop(curriculum: Curriculum, progress: Progress): Station | null {
-  const readingId = latestWithStatus(progress, "reading", (s) => s.updatedAt);
-  const reading = readingId ? findStation(curriculum, readingId) : null;
-  if (reading && isOnRoute(reading.station, reading.line, progress.tracks)) return reading.station;
-
-  const lastReadId = latestWithStatus(progress, "read", (s) => s.readAt);
-  const onward = lastReadId ? onwardFrom(curriculum, lastReadId, progress) : null;
-  if (onward) return onward;
-
-  const scan = (ready: boolean) => {
-    for (const lineId of curriculum.spineOrder) {
-      const line = curriculum.lines.find((l) => l.id === lineId);
-      const candidate = line?.stations.find(
-        (s) => !isRead(progress, s.id) && isOnRoute(s, line, progress.tracks) && (!ready || prereqsMet(s, progress)),
-      );
-      if (candidate) return candidate;
-    }
-    return null;
-  };
-  return scan(true) ?? scan(false) ?? (reading?.station ?? null) ?? curriculum.lines.flatMap((l) => l.stations).find((s) => !isRead(progress, s.id)) ?? null;
+  const stops = ride(curriculum, progress.tracks);
+  const at = positionOf(stops, progress);
+  const lineId = stops[at]?.line.id;
+  const unread = (stop: Stop) => !isRead(progress, stop.station.id);
+  const ready = (stop: Stop) => unread(stop) && prereqsMet(stop.station, progress);
+  const onward = stops.slice(at);
+  const passed = stops.slice(0, at);
+  const thisLine = (list: Stop[]) => list.filter((stop) => stop.line.id === lineId);
+  const stop = thisLine(onward).find(ready) ?? thisLine(passed).find(ready)
+    ?? onward.find(ready) ?? passed.find(ready)
+    ?? onward.find(unread) ?? passed.find(unread);
+  return stop?.station ?? null;
 }
 
 export interface Totals {
