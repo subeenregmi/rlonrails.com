@@ -1785,8 +1785,7 @@ export const CURRICULUM: Curriculum = {
               "label": "Arcade Learning Environment",
               "url": "https://github.com/Farama-Foundation/Arcade-Learning-Environment"
             }
-          ],
-          "always": true
+          ]
         }
       ],
       "track": true
