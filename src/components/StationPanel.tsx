@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type Ref } from "react";
 import { CURRICULUM, logResources, type Line, type LogEntry, type Resource, type ResourceKind, type Station } from "@/lib/curriculum";
 import {
   SKILLS, STATUSES, deliverables, emptyStation, isOnRoute, lineProgress, requirement, stationProgress, statusOf,
@@ -34,6 +34,7 @@ interface Shown {
 }
 
 interface StationPanelProps {
+  ref?: Ref<HTMLElement>;
   view: PanelView;
   progress: Progress;
   saveError: boolean;
@@ -73,7 +74,7 @@ const isSourceStation = (station: Station) => logResources(CURRICULUM, station.i
 const fmtDate = (iso: string) => (dateFormat ??= new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" })).format(new Date(iso));
 
 export function StationPanel(props: StationPanelProps) {
-  const { view, progress, saveError, onStatus, onSkill, onToggleDeliverable, onToggleResource, onSelect, onClose } = props;
+  const { ref, view, progress, saveError, onStatus, onSkill, onToggleDeliverable, onToggleResource, onSelect, onClose } = props;
   const open = Boolean(view.line);
   const [shown, setShown] = useState<Shown | null>(open ? { view, leaving: false } : null);
   if (open && view !== shown?.view) setShown({ view, leaving: false });
@@ -101,6 +102,7 @@ export function StationPanel(props: StationPanelProps) {
     // Slides in with a transform. Animating the width instead re-laid-out and
     // re-wrapped every line of text in the panel on each frame of the slide.
     <aside
+      ref={ref}
       className={cx("absolute inset-y-0 right-0 z-30 w-full overflow-x-hidden overflow-y-auto overscroll-contain border-l border-rule bg-surface transition-transform duration-[380ms] ease-[cubic-bezier(.2,.8,.2,1)] sm:w-[calc(380px+var(--safe-right))]", open ? "translate-x-0" : "translate-x-full")}
       style={{ "--c": colour, "--on": on } as React.CSSProperties}
       aria-hidden={!open}
@@ -244,6 +246,12 @@ function LineStops({ line, progress, colour, onSelect }: { line: Line; progress:
   return (
     <div className="px-5 pt-4">
       <p className="text-[13px] leading-snug text-ink-soft">{line.goal}</p>
+      <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">Where you are</h3>
+      <p className="text-[14px] leading-normal">{line.problem}</p>
+      <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">What this line covers</h3>
+      <p className="text-[14px] leading-normal">{line.approach}</p>
+      <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">What you leave with</h3>
+      <p className="text-[14px] leading-normal">{line.outcome}</p>
       <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">Stations</h3>
       <ol className="ml-2 border-l-[6px] pl-4" style={{ borderColor: colour }}>
         {line.stations.map((station) => {

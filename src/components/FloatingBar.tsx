@@ -123,44 +123,47 @@ export function FloatingBar(props: FloatingBarProps) {
 
       {open && (
         <Shell modal={modal} onDismiss={fold}>
-          <section className={cx("pr-1", modal ? "sm:min-h-0 sm:flex-1 sm:overflow-y-auto" : "max-h-[40dvh] overflow-y-auto sm:max-h-[60vh]")}>
-            <h2 className="mb-2 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Lines</h2>
-            <ul className="flex flex-col gap-0.5">
-              {lines.map((line) => {
-                const tally = lineTally(progressByLine[line.id]);
-                const colour = TFL_COLOURS[line.tfl];
-                return (
-                  <li
-                    key={line.id}
-                    onMouseEnter={() => onHoverLine(line.id)}
-                    onMouseLeave={() => onHoverLine(null)}
-                    onClick={() => { onPickLine(line.id); fold(); }}
-                    className={cx("grid cursor-pointer grid-cols-[6px_1fr_auto] items-center gap-x-2.5 gap-y-1 rounded-lg px-2 py-1.5 transition hover:bg-tint", focusLineId === line.id && "bg-tint")}
-                  >
-                    <span className="h-7 w-1.5 rounded" style={{ background: colour }} />
-                    <div className="min-w-0">
-                      {/* The tick and the badge sit beside the name rather than
-                          inside it, so a long name is what gets clipped. */}
-                      <div className="flex min-w-0 items-center gap-1.5 text-[13px] leading-tight">
-                        <span className="truncate">{line.name}</span>
-                        {tally.complete && <Tick className="h-3.5 w-3.5 flex-none" style={{ color: colour }} />}
-                        {line.track && tracks.includes(line.id) && <span className="flex-none rounded-full bg-tint-strong px-1.5 py-px text-[9.5px] uppercase tracking-[0.06em] text-ink-soft">Chosen</span>}
+          {/* Filled from the other column's height rather than its own, so the list scrolls inside the menu instead of setting how tall it is. */}
+          <section className={cx(modal ? "sm:min-h-0 sm:flex-1" : "max-h-[40dvh] overflow-y-auto sm:relative sm:max-h-none sm:overflow-visible")}>
+            <div className={cx("pr-1", modal ? "sm:h-full sm:overflow-y-auto" : "sm:absolute sm:inset-0 sm:overflow-y-auto")}>
+              <h2 className="mb-2 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Lines</h2>
+              <ul className="flex flex-col gap-0.5">
+                {lines.map((line) => {
+                  const tally = lineTally(progressByLine[line.id]);
+                  const colour = TFL_COLOURS[line.tfl];
+                  return (
+                    <li
+                      key={line.id}
+                      onMouseEnter={() => onHoverLine(line.id)}
+                      onMouseLeave={() => onHoverLine(null)}
+                      onClick={() => { onPickLine(line.id); fold(); }}
+                      className={cx("grid cursor-pointer grid-cols-[6px_1fr_auto] items-center gap-x-2.5 gap-y-1 rounded-lg px-2 py-1.5 transition hover:bg-tint", focusLineId === line.id && "bg-tint")}
+                    >
+                      <span className="h-7 w-1.5 rounded" style={{ background: colour }} />
+                      <div className="min-w-0">
+                        {/* The tick and the badge sit beside the name rather than
+                            inside it, so a long name is what gets clipped. */}
+                        <div className="flex min-w-0 items-center gap-1.5 text-[13px] leading-tight">
+                          <span className="truncate">{line.name}</span>
+                          {tally.complete && <Tick className="h-3.5 w-3.5 flex-none" style={{ color: colour }} />}
+                          {line.track && tracks.includes(line.id) && <span className="flex-none rounded-full bg-tint-strong px-1.5 py-px text-[9.5px] uppercase tracking-[0.06em] text-ink-soft">Chosen</span>}
+                        </div>
+                        <div className="truncate text-[10.5px] text-ink-faint">
+                          {line.phase}
+                          {tally.note && ` · ${tally.note}`}
+                        </div>
                       </div>
-                      <div className="truncate text-[10.5px] text-ink-faint">
-                        {line.phase}
-                        {tally.note && ` · ${tally.note}`}
+                      <div className="text-[12px] text-ink-soft tabular-nums" title={tally.title}>
+                        {tally.done} / {tally.need}
                       </div>
-                    </div>
-                    <div className="text-[12px] text-ink-soft tabular-nums" title={tally.title}>
-                      {tally.done} / {tally.need}
-                    </div>
-                    <div className="relative col-start-2 col-end-4 h-1 overflow-hidden rounded-full bg-bar">
-                      <div className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-700" style={{ width: `${100 * tally.fraction}%`, background: colour }} />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                      <div className="relative col-start-2 col-end-4 h-1 overflow-hidden rounded-full bg-bar">
+                        <div className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-700" style={{ width: `${100 * tally.fraction}%`, background: colour }} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           </section>
 
           <section className={cx("flex flex-col gap-4", modal && "sm:min-h-0 sm:w-[200px] sm:flex-none sm:overflow-y-auto")}>
@@ -173,6 +176,7 @@ export function FloatingBar(props: FloatingBarProps) {
                 <dt className="text-ink-soft">Chosen tracks</dt>
                 <dd className="text-right">{totals.trackTotal > 0 ? `${totals.trackRead} / ${totals.trackTotal}` : <span className="text-ink-faint">None picked</span>}</dd>
                 <dt className="text-ink-soft">Exercises</dt><dd className="text-right">{totals.exerciseRead} / {totals.exerciseTotal}</dd>
+                <dt className="text-ink-soft" title="Reference stations stay off every route">Reference</dt><dd className="text-right">{totals.referenceRead} / {totals.referenceTotal}</dd>
                 <dt className="text-ink-soft">Implemented</dt><dd className="text-right">{totals.implemented}</dd>
                 <dt className="text-ink-soft">Investigated</dt><dd className="text-right">{totals.investigated}</dd>
                 <dt className="text-ink-soft">Explored</dt><dd className="text-right">{totals.read} / {totals.total}</dd>
@@ -182,7 +186,7 @@ export function FloatingBar(props: FloatingBarProps) {
             </div>
             <div>
               <h2 className="mb-1 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Your route</h2>
-              <p className="mb-2 text-[11.5px] leading-snug text-ink-faint">Core stations and the exercises on the spine are for everyone. Specialisations are the rest: choose the ones you mean to do and their stations join your route. The map asks once, after the research sampler.</p>
+              <p className="mb-2 text-[11.5px] leading-snug text-ink-faint">Core stations and the exercises on the spine are for everyone. Specialisations are the rest: choose the ones you mean to do and their stations join your route. Reference stations stay off every route, so the route count is smaller than the map. The map asks once, after the research sampler.</p>
               <div className="mb-2 flex flex-wrap gap-1">
                 {chosen.length === 0
                   ? <span className="text-[11.5px] text-ink-faint">None chosen yet</span>
