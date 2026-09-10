@@ -6,6 +6,7 @@ import { INTERCHANGE_RADIUS, RIVER, STATION_RADIUS, coastRings, coastWaves, line
 import { dashArray, isRead, statusOf, type Interval, type Progress, type Status } from "@/lib/progress";
 import { isLightLine } from "@/lib/tfl";
 import { cx } from "@/lib/cx";
+import { HerePin } from "./HerePin";
 import { Minimap, type View } from "./Minimap";
 import { Trains } from "./Trains";
 
@@ -1112,6 +1113,11 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     onPinLine(null);
   };
 
+  const flyToHere = useCallback(() => {
+    const s = hereId ? layout.stations[hereId] : null;
+    if (s) flyTo(s.pt.x, s.pt.y, Math.min(pending.current.w, 1500), 700);
+  }, [hereId, layout, flyTo]);
+
   const dim = (lineId: string) => (focusLineId ? String(lineId !== focusLineId) : undefined);
   const hoverStation = hover ? lineOf.get(hover.id)?.stations.find((s) => s.id === hover.id) : null;
 
@@ -1192,6 +1198,15 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
       </svg>
       <Trains layout={layout} intervals={intervalsByLine} count={trainCount} focusLineId={focusLineId} subscribe={subscribe} river={surface.river} revealAfterMs={lite ? LITE_INTRO_MS : schedule.total} />
       <div ref={shieldRef} className="drag-shield absolute inset-0 hidden" />
+      {hereId && layout.stations[hereId] && (
+        <HerePin
+          pt={layout.stations[hereId].pt}
+          colour={colours[layout.stations[hereId].lineId]}
+          wrapRect={wrapRect}
+          subscribe={subscribe}
+          onClick={flyToHere}
+        />
+      )}
 
       {hover && hoverStation && (
         <div
