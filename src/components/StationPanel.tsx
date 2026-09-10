@@ -108,13 +108,17 @@ export function StationPanel(props: StationPanelProps) {
     // Slides in with a transform. Animating the width instead re-laid-out and
     // re-wrapped every line of text in the panel on each frame of the slide.
     <aside
-      className={cx("absolute inset-y-0 right-0 z-30 w-full overflow-x-hidden overflow-y-auto overscroll-contain border-l border-rule bg-surface pr-safe-right transition-transform duration-[380ms] ease-[cubic-bezier(.2,.8,.2,1)] sm:w-[calc(380px+var(--safe-right))]", open ? "translate-x-0" : "translate-x-full")}
+      className={cx("absolute inset-y-0 right-0 z-30 w-full overflow-x-hidden overflow-y-auto overscroll-contain border-l border-rule bg-surface transition-transform duration-[380ms] ease-[cubic-bezier(.2,.8,.2,1)] sm:w-[calc(380px+var(--safe-right))]", open ? "translate-x-0" : "translate-x-full")}
       style={{ "--c": colour, "--on": on } as React.CSSProperties}
       aria-hidden={!open}
       onTransitionEnd={(event) => { if (shown?.leaving && event.target === event.currentTarget && (event.propertyName === "translate" || event.propertyName === "transform")) setShown(null); }}
     >
+      {/* Nothing inside holds itself off a landscape display cutout: the panel
+          widens by the inset instead, so the header, the text and the close
+          button all reach the same edge and the line colour has no white strip
+          beside it. */}
       {line && (
-        <div key={station?.id ?? line.id} className="panel-switch w-full pb-[calc(1.5rem+var(--safe-bottom))] sm:w-[380px]">
+        <div key={station?.id ?? line.id} className="panel-switch w-full pb-[calc(1.5rem+var(--safe-bottom))]">
           <header className="relative px-5 pt-[calc(1rem+var(--safe-top))] pb-4" style={{ background: colour, color: on }}>
             <button
               type="button"

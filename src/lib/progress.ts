@@ -209,6 +209,44 @@ export function lineProgress(line: Line, progress: Progress): LineProgress {
   };
 }
 
+/**
+ * What a line's row in a list should say. One denominator per row: the route
+ * where the route asks anything of the line, the whole line where it asks
+ * nothing. The count, the bar and the tick all read off it, so a row can no
+ * longer show "3 / 5" above a bar three eighths full, or print the same
+ * fraction twice because the count fell back to the numbers the note already
+ * carried. Anything read outside that denominator is said in words instead.
+ */
+export interface LineTally {
+  done: number;
+  need: number;
+  complete: boolean;
+  /** 0..1, so the bar and the count cannot disagree. */
+  fraction: number;
+  /** What the count leaves out, in words rather than a second fraction. */
+  note: string;
+  title: string;
+}
+
+export function lineTally(p: LineProgress): LineTally {
+  const onRoute = p.routeTotal > 0;
+  const done = onRoute ? p.routeRead : p.read;
+  const need = onRoute ? p.routeTotal : p.total;
+  // Stations off the route, and how many of them have been read anyway.
+  const off = p.total - p.routeTotal;
+  const extra = onRoute ? p.read - p.routeRead : 0;
+  return {
+    done,
+    need,
+    complete: onRoute ? p.complete : p.explored,
+    fraction: need > 0 ? done / need : 0,
+    note: !onRoute ? "not on your route" : off === 0 ? "" : extra > 0 ? `${extra} of ${off} explored off route` : `${off} more off route`,
+    title: onRoute
+      ? `${p.routeRead} of ${p.routeTotal} on your route · ${p.read} of ${p.total} read on the line`
+      : `Nothing on this line is on your route · ${p.read} of ${p.total} read on the line`,
+  };
+}
+
 export const nextOnLine = (line: Line, progress: Progress) =>
   line.stations.find((s) => !isRead(progress, s.id) && isOnRoute(s, line, progress.tracks))
   ?? line.stations.find((s) => !isRead(progress, s.id))

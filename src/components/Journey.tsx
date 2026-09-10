@@ -8,7 +8,7 @@ import { Heatmap } from "./Heatmap";
 import { Roundel } from "./Roundel";
 import { readDays, streaks } from "@/lib/activity";
 import { CURRICULUM } from "@/lib/curriculum";
-import { lineProgress, totals, type Progress } from "@/lib/progress";
+import { lineProgress, lineTally, totals, type Progress } from "@/lib/progress";
 import { progressStore } from "@/lib/storage";
 import { TFL_COLOURS, isLightLine } from "@/lib/tfl";
 
@@ -90,24 +90,23 @@ export function JourneyContent({ progress, onClose }: { progress: Progress; onCl
         <h2 className="mb-3 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Lines</h2>
         <ul className="flex flex-col gap-1">
           {CURRICULUM.lines.map((line) => {
-            const p = lineProgress(line, progress);
+            const tally = lineTally(lineProgress(line, progress));
             const colour = TFL_COLOURS[line.tfl];
             return (
               <li key={line.id} className="grid grid-cols-[6px_1fr_auto] items-center gap-x-3 gap-y-1 rounded-lg px-2 py-1.5">
                 <span className="h-7 w-1.5 rounded" style={{ background: colour }} />
                 <div className="min-w-0">
                   <div className="truncate text-[13.5px] leading-tight">{line.name}</div>
-                  <div className="text-[10.5px] text-ink-faint">
+                  <div className="truncate text-[10.5px] text-ink-faint">
                     {line.phase}
-                    {p.routeTotal < p.total && ` · ${p.read} of ${p.total} explored`}
+                    {tally.note && ` · ${tally.note}`}
                   </div>
                 </div>
-                <div className="text-[12.5px] text-ink-soft" title={`${p.routeRead} of ${p.routeTotal} on your route`}>
-                  {p.routeTotal > 0 ? `${p.routeRead} / ${p.routeTotal}` : `${p.read} / ${p.total}`}
+                <div className="text-[12.5px] text-ink-soft tabular-nums" title={tally.title}>
+                  {tally.done} / {tally.need}
                 </div>
                 <div className="relative col-start-2 col-end-4 h-1 overflow-hidden rounded-full bg-bar">
-                  <div className="absolute inset-y-0 left-0 rounded-full opacity-35" style={{ width: `${(100 * p.read) / p.total}%`, background: colour }} />
-                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(100 * p.routeRead) / p.total}%`, background: colour }} />
+                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${100 * tally.fraction}%`, background: colour }} />
                 </div>
               </li>
             );

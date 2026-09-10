@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { Line } from "@/lib/curriculum";
-import type { LineProgress, Totals } from "@/lib/progress";
+import { lineTally, type LineProgress, type Totals } from "@/lib/progress";
 import { TFL_COLOURS, isLightLine } from "@/lib/tfl";
 import { cx } from "@/lib/cx";
-import { ChevronDownIcon } from "@heroicons/react/16/solid";
+import { ChevronDownIcon, XMarkIcon } from "@heroicons/react/16/solid";
 import { Roundel } from "./Roundel";
 import { Tick } from "./Tick";
 import { MiniHeatmap } from "./Heatmap";
@@ -31,8 +31,9 @@ interface FloatingBarProps {
 const tool = "rounded-full bg-tint px-3 py-1.5 text-[13px] text-ink transition hover:bg-tint-strong active:translate-y-px";
 
 // Kept in step with the landscape block in globals.css, which owns the folding
-// itself. This only decides whether the roundel is a real control, so a stale
-// first paint costs nothing visually.
+// itself. This decides whether the roundel is a real control and whether the
+// menu opens as a modal — both only matter once something has been tapped, so
+// a stale first paint costs nothing visually.
 const COMPACT = "(orientation: landscape) and (max-height: 540px)";
 
 let compactQuery: MediaQueryList | null = null;
@@ -52,6 +53,12 @@ export function FloatingBar(props: FloatingBarProps) {
   const [barOpen, setBarOpen] = useState(false);
   const compact = useCompact();
   const chosen = lines.filter((line) => tracks.includes(line.id));
+  // A landscape phone has no room under the pill for a dropdown — it would open
+  // a couple of centimetres tall — so there the menu becomes a modal over the
+  // map instead, sized by the screen rather than by what is left below the bar.
+  // It is a descendant of the bar, so while it is up the bar also has to
+  // out-rank the journey drawer; the dropdown stays under it as before.
+  const modal = compact && open;
   const rootRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   // Anything that acts on the map puts the bar away with it, so a landscape
@@ -70,7 +77,7 @@ export function FloatingBar(props: FloatingBarProps) {
   }, [open, barOpen, fold]);
 
   return (
-    <div ref={rootRef} className={cx("floating-bar absolute top-[calc(1rem+var(--safe-top))] left-[calc(1rem+var(--safe-left))] z-20 max-w-[calc(100%-2rem-var(--safe-left)-var(--safe-right))]", barOpen && "bar-open")}>
+    <div ref={rootRef} className={cx("floating-bar absolute top-[calc(1rem+var(--safe-top))] left-[calc(1rem+var(--safe-left))] max-w-[calc(100%-2rem-var(--safe-left)-var(--safe-right))]", modal ? "z-30" : "z-20", barOpen && "bar-open")}>
       <div className="bar-pill flex h-[60px] w-fit items-center gap-2.5 rounded-full bg-tfl-blue pr-2.5 pl-2 text-white shadow-[0_10px_30px_rgba(0,25,168,.28),inset_0_-3px_0_#E32017] sm:gap-3.5">
         <button
           type="button"
@@ -105,6 +112,7 @@ export function FloatingBar(props: FloatingBarProps) {
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
+              aria-haspopup={compact ? "dialog" : undefined}
               className={cx("flex h-9 flex-none items-center gap-1.5 rounded-full px-3.5 text-[13px] transition", open ? "bg-white text-[#111]" : "bg-white/12 hover:bg-white/25")}
             >
               Menu <ChevronDownIcon className={cx("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
@@ -114,12 +122,12 @@ export function FloatingBar(props: FloatingBarProps) {
       </div>
 
       {open && (
-        <div className="panel-enter mt-2 grid max-h-[calc(100dvh-12.5rem-var(--safe-top)-var(--safe-bottom))] w-[560px] max-w-[calc(100vw-2rem-var(--safe-left)-var(--safe-right))] grid-cols-1 gap-4 overflow-y-auto overscroll-contain rounded-2xl border border-rule bg-surface p-4 text-ink shadow-[0_18px_50px_rgba(0,0,0,.18)] sm:grid-cols-[1fr_200px]">
-          <section className="max-h-[40dvh] overflow-y-auto pr-1 sm:max-h-[60vh]">
+        <Shell modal={modal} onDismiss={fold}>
+          <section className={cx("pr-1", modal ? "sm:min-h-0 sm:flex-1 sm:overflow-y-auto" : "max-h-[40dvh] overflow-y-auto sm:max-h-[60vh]")}>
             <h2 className="mb-2 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Lines</h2>
             <ul className="flex flex-col gap-0.5">
               {lines.map((line) => {
-                const p = progressByLine[line.id];
+                const tally = lineTally(progressByLine[line.id]);
                 const colour = TFL_COLOURS[line.tfl];
                 return (
                   <li
@@ -131,22 +139,23 @@ export function FloatingBar(props: FloatingBarProps) {
                   >
                     <span className="h-7 w-1.5 rounded" style={{ background: colour }} />
                     <div className="min-w-0">
-                      <div className="truncate text-[13px] leading-tight">
-                        {line.name}
-                        {p.complete && <Tick className="ml-1 inline h-3.5 w-3.5 align-[-2px]" style={{ color: colour }} />}
-                        {line.track && tracks.includes(line.id) && <span className="ml-1.5 rounded-full bg-tint-strong px-1.5 py-px text-[9.5px] uppercase tracking-[0.06em] text-ink-soft">Chosen</span>}
+                      {/* The tick and the badge sit beside the name rather than
+                          inside it, so a long name is what gets clipped. */}
+                      <div className="flex min-w-0 items-center gap-1.5 text-[13px] leading-tight">
+                        <span className="truncate">{line.name}</span>
+                        {tally.complete && <Tick className="h-3.5 w-3.5 flex-none" style={{ color: colour }} />}
+                        {line.track && tracks.includes(line.id) && <span className="flex-none rounded-full bg-tint-strong px-1.5 py-px text-[9.5px] uppercase tracking-[0.06em] text-ink-soft">Chosen</span>}
                       </div>
-                      <div className="text-[10.5px] text-ink-faint">
+                      <div className="truncate text-[10.5px] text-ink-faint">
                         {line.phase}
-                        {p.routeTotal < p.total && ` · ${p.read} of ${p.total} explored`}
+                        {tally.note && ` · ${tally.note}`}
                       </div>
                     </div>
-                    <div className="text-[12px] text-ink-soft" title={`${p.routeRead} of ${p.routeTotal} on your route · ${p.read} of ${p.total} explored`}>
-                      {p.routeTotal > 0 ? `${p.routeRead} / ${p.routeTotal}` : `${p.read} / ${p.total}`}
+                    <div className="text-[12px] text-ink-soft tabular-nums" title={tally.title}>
+                      {tally.done} / {tally.need}
                     </div>
                     <div className="relative col-start-2 col-end-4 h-1 overflow-hidden rounded-full bg-bar">
-                      <div className="absolute inset-y-0 left-0 rounded-full opacity-35" style={{ width: `${(100 * p.read) / p.total}%`, background: colour }} />
-                      <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(100 * p.routeRead) / p.total}%`, background: colour }} />
+                      <div className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-700" style={{ width: `${100 * tally.fraction}%`, background: colour }} />
                     </div>
                   </li>
                 );
@@ -154,12 +163,15 @@ export function FloatingBar(props: FloatingBarProps) {
             </ul>
           </section>
 
-          <section className="flex flex-col gap-4">
+          <section className={cx("flex flex-col gap-4", modal && "sm:min-h-0 sm:w-[200px] sm:flex-none sm:overflow-y-auto")}>
             <div>
               <h2 className="mb-2 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Progress</h2>
               <dl className="grid grid-cols-[1fr_auto] gap-y-1 text-[12.5px]">
                 <dt className="text-ink-soft">Core</dt><dd className="text-right">{totals.coreRead} / {totals.coreTotal}</dd>
-                <dt className="text-ink-soft">Chosen tracks</dt><dd className="text-right">{totals.trackRead} / {totals.trackTotal}</dd>
+                {/* Until a specialisation is picked there is no denominator to
+                    count against, and "0 / 0" reads as a broken counter. */}
+                <dt className="text-ink-soft">Chosen tracks</dt>
+                <dd className="text-right">{totals.trackTotal > 0 ? `${totals.trackRead} / ${totals.trackTotal}` : <span className="text-ink-faint">None picked</span>}</dd>
                 <dt className="text-ink-soft">Exercises</dt><dd className="text-right">{totals.exerciseRead} / {totals.exerciseTotal}</dd>
                 <dt className="text-ink-soft">Implemented</dt><dd className="text-right">{totals.implemented}</dd>
                 <dt className="text-ink-soft">Investigated</dt><dd className="text-right">{totals.investigated}</dd>
@@ -210,8 +222,55 @@ export function FloatingBar(props: FloatingBarProps) {
               </a>
             </div>
           </section>
-        </div>
+        </Shell>
       )}
+    </div>
+  );
+}
+
+/*
+ * The same menu in two shells. As a dropdown it hangs off the pill and is
+ * capped by what is left of the viewport under it; as a modal it is centred
+ * over the map, fills the height it is given, and each column scrolls on its
+ * own — on a landscape phone the dropdown's cap is barely a menu at all.
+ */
+function Shell({ modal, onDismiss, children }: { modal: boolean; onDismiss: () => void; children: ReactNode }) {
+  const box = "rounded-2xl border border-rule bg-surface p-4 text-ink";
+  if (!modal) {
+    return (
+      <div className={cx("panel-enter mt-2 grid max-h-[calc(100dvh-12.5rem-var(--safe-top)-var(--safe-bottom))] w-[560px] max-w-[calc(100vw-2rem-var(--safe-left)-var(--safe-right))] grid-cols-1 gap-4 overflow-y-auto overscroll-contain shadow-[0_18px_50px_rgba(0,0,0,.18)] sm:grid-cols-[1fr_200px]", box)}>
+        {children}
+      </div>
+    );
+  }
+  return (
+    <div
+      className="dialog-backdrop fixed inset-0 flex items-center justify-center bg-ink/40 pt-[calc(0.75rem+var(--safe-top))] pr-[calc(0.75rem+var(--safe-right))] pb-[calc(0.75rem+var(--safe-bottom))] pl-[calc(0.75rem+var(--safe-left))]"
+      onPointerDown={(event) => { if (event.target === event.currentTarget) onDismiss(); }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="menu-title"
+        className={cx("dialog-enter flex h-full w-[560px] max-w-full flex-col shadow-[0_24px_70px_rgba(0,0,0,.32)]", box)}
+      >
+        {/* There is no Escape key on a phone, and the pill is behind the
+            backdrop, so the modal carries its own way out. */}
+        <header className="mb-3 flex flex-none items-center justify-between">
+          <h2 id="menu-title" className="text-[11px] uppercase tracking-[0.1em] text-ink-soft">Menu</h2>
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Close the menu"
+            className="-my-1 -mr-1 flex h-8 w-8 items-center justify-center rounded-full bg-tint text-ink-soft transition hover:bg-tint-strong hover:text-ink"
+          >
+            <XMarkIcon className="h-4 w-4" />
+          </button>
+        </header>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain sm:flex-row sm:overflow-hidden">
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
