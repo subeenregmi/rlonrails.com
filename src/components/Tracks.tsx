@@ -86,44 +86,42 @@ export function TracksModal({ open, tracks, prompted, onToggle, onAll, onDone }:
 
 function LineRow({ line, on, onToggle }: { line: Line; on: boolean; onToggle: () => void }) {
   const colour = TFL_COLOURS[line.tfl];
-  const stops = isTrackLine(line) ? trackStops(line) : 0;
-  const row = "grid w-full grid-cols-[6px_20px_1fr_auto] items-center gap-x-3 rounded-lg px-2 py-2 text-left";
-  const bar = "h-full min-h-8 w-1.5 rounded";
-
-  if (!isTrackLine(line)) {
-    return (
-      <li>
-        <div className={row}>
-          <span className={bar} style={{ background: colour }} />
-          <span className="flex h-5 w-5 items-center justify-center rounded-md text-ink-faint" title="On every route">
-            <CheckIcon className="h-3.5 w-3.5" />
-          </span>
-          <div className="min-w-0">
-            <div className="truncate text-[13.5px] leading-tight text-ink-soft">{line.name}</div>
-            <div className="line-clamp-2 text-[11.5px] leading-snug text-ink-faint">{lineSummary(line)}</div>
-          </div>
-          <span className="flex-none text-[11px] whitespace-nowrap text-ink-faint">Everyone</span>
-        </div>
-      </li>
-    );
-  }
+  // The spine is not a choice, so its box is ticked and disabled rather than
+  // absent: the row still reads as one of the same list.
+  const fixed = !isTrackLine(line);
+  const stops = trackStops(line);
 
   return (
     <li>
-      <button type="button" onClick={onToggle} aria-pressed={on} className={cx(row, "transition hover:bg-tint", on && "bg-tint")}>
-        <span className={bar} style={{ background: colour }} />
-        <span
-          className="flex h-5 w-5 items-center justify-center rounded-md border-2 text-white transition"
-          style={{ borderColor: colour, background: on ? colour : "var(--surface)" }}
-        >
-          {on && <CheckIcon className="h-3 w-3" />}
+      <label
+        className={cx(
+          "grid grid-cols-[6px_20px_1fr_auto] items-center gap-x-3 rounded-lg px-2 py-2 transition",
+          fixed ? "cursor-default" : "cursor-pointer hover:bg-tint",
+          on && !fixed && "bg-tint",
+        )}
+      >
+        <span className="h-full min-h-8 w-1.5 rounded" style={{ background: colour }} />
+        <span className="relative flex h-5 w-5 items-center justify-center">
+          <input
+            type="checkbox"
+            checked={on || fixed}
+            disabled={fixed}
+            onChange={onToggle}
+            className="h-5 w-5 appearance-none rounded-md border-2 transition focus-visible:ring-2 focus-visible:ring-tfl-blue focus-visible:ring-offset-2 focus-visible:outline-none"
+            style={fixed
+              ? { borderColor: "var(--locked)", background: "var(--locked)" }
+              : { borderColor: colour, background: on ? colour : "var(--surface)" }}
+          />
+          {(on || fixed) && <CheckIcon className="pointer-events-none absolute h-3 w-3 text-white" />}
         </span>
         <div className="min-w-0">
-          <div className="truncate text-[13.5px] leading-tight">{line.name}</div>
+          <div className={cx("truncate text-[13.5px] leading-tight", fixed && "text-ink-soft")}>{line.name}</div>
           <div className="line-clamp-2 text-[11.5px] leading-snug text-ink-faint">{lineSummary(line)}</div>
         </div>
-        <span className="flex-none text-[11px] whitespace-nowrap text-ink-faint">+{stops} {stops === 1 ? "stop" : "stops"}</span>
-      </button>
+        <span className="flex-none text-[11px] whitespace-nowrap text-ink-faint">
+          {fixed ? "Everyone" : `+${stops} ${stops === 1 ? "stop" : "stops"}`}
+        </span>
+      </label>
     </li>
   );
 }
