@@ -5,8 +5,9 @@ import type { Line } from "@/lib/curriculum";
 import type { LineProgress, Totals } from "@/lib/progress";
 import { TFL_COLOURS, isLightLine } from "@/lib/tfl";
 import { cx } from "@/lib/cx";
-import { CheckIcon, ChevronDownIcon } from "@heroicons/react/16/solid";
+import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { Roundel } from "./Roundel";
+import { Tick } from "./Tick";
 import { MiniHeatmap } from "./Heatmap";
 
 interface FloatingBarProps {
@@ -132,7 +133,7 @@ export function FloatingBar(props: FloatingBarProps) {
                     <div className="min-w-0">
                       <div className="truncate text-[13px] leading-tight">
                         {line.name}
-                        {p.complete && <CheckIcon className="ml-1 inline h-3.5 w-3.5 align-[-2px]" style={{ color: colour }} />}
+                        {p.complete && <Tick className="ml-1 inline h-3.5 w-3.5 align-[-2px]" style={{ color: colour }} />}
                         {line.track && tracks.includes(line.id) && <span className="ml-1.5 rounded-full bg-tint-strong px-1.5 py-px text-[9.5px] uppercase tracking-[0.06em] text-ink-soft">Chosen</span>}
                       </div>
                       <div className="text-[10.5px] text-ink-faint">

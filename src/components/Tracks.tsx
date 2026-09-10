@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { CheckIcon } from "@heroicons/react/16/solid";
 import { CURRICULUM, isTrackLine, lineSummary, type Line } from "@/lib/curriculum";
 import { trackStops } from "@/lib/progress";
 import { TFL_COLOURS } from "@/lib/tfl";
 import { cx } from "@/lib/cx";
+import { Tick } from "./Tick";
 
 interface TracksModalProps {
   open: boolean;
@@ -112,7 +112,7 @@ function LineRow({ line, on, onToggle }: { line: Line; on: boolean; onToggle: ()
               ? { borderColor: "var(--locked)", background: "var(--locked)" }
               : { borderColor: colour, background: on ? colour : "var(--surface)" }}
           />
-          {(on || fixed) && <CheckIcon className="pointer-events-none absolute h-3 w-3 text-white" />}
+          {(on || fixed) && <Tick className="pointer-events-none absolute h-3 w-3 text-white" />}
         </span>
         <div className="min-w-0">
           <div className={cx("truncate text-[13.5px] leading-tight", fixed && "text-ink-soft")}>{line.name}</div>
