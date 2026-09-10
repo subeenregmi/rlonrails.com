@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   applicationName: "RL on Rails",
   appleWebApp: { capable: true, title: "RL on Rails", statusBarStyle: "black-translucent" },
   formatDetection: { telephone: false },
+  // Next emits the standard `mobile-web-app-capable`; iOS only learned that one
+  // in 17.4, and reads the manifest's `display` no further back than 15.4.
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = {
