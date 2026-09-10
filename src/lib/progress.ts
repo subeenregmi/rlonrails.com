@@ -1,4 +1,4 @@
-import { findStation, resourceIds, stationIds, type Curriculum, type Line, type Resource, type Station } from "./curriculum";
+import { findStation, resourceIds, stationIds, type Curriculum, type Line, type Resource, type Stage, type Station } from "./curriculum";
 import type { MapLayout } from "./geometry";
 
 export type Status = "unread" | "reading" | "read";
@@ -23,13 +23,18 @@ export interface Progress {
   resources: Record<string, boolean>;
   /** Selected specialisations. Track stations on other lines stay off the route. */
   tracks: string[];
+  /**
+   * When the reader last settled their specialisations. Null while they have
+   * never been asked, which is what brings the picker up of its own accord.
+   */
+  tracksAt: string | null;
 }
 
 export const STATUSES: Status[] = ["unread", "reading", "read"];
 export const SKILLS: Skill[] = ["understood", "implemented", "investigated"];
 const RANK: Record<Status, number> = { unread: 0, reading: 1, read: 2 };
 
-export const emptyProgress = (): Progress => ({ stations: {}, resources: {}, tracks: [] });
+export const emptyProgress = (): Progress => ({ stations: {}, resources: {}, tracks: [], tracksAt: null });
 
 export const emptyStation = (): StationProgress => ({ status: "unread", readAt: null, updatedAt: null, skills: [], deliverables: [] });
 
@@ -112,6 +117,7 @@ export function isValidProgress(value: unknown): value is Progress {
   if (!candidate.stations || typeof candidate.stations !== "object") return false;
   if (!candidate.resources || typeof candidate.resources !== "object") return false;
   if (candidate.tracks !== undefined && !Array.isArray(candidate.tracks)) return false;
+  if (candidate.tracksAt !== undefined && candidate.tracksAt !== null && typeof candidate.tracksAt !== "string") return false;
   return Object.values(candidate.stations).every((s) => s && typeof s === "object" && isStatus((s as StationProgress).status));
 }
 
@@ -138,6 +144,7 @@ export function sanitizeProgress(curriculum: Curriculum, progress: Progress): Pr
   }
   for (const [id, done] of Object.entries(progress.resources)) if (resources.has(id) && done === true) clean.resources[id] = true;
   clean.tracks = [...new Set(strings(progress.tracks, (id) => trackLines.has(id)))];
+  clean.tracksAt = validDate(progress.tracksAt);
   return clean;
 }
 
@@ -206,6 +213,32 @@ export const nextOnLine = (line: Line, progress: Progress) =>
   line.stations.find((s) => !isRead(progress, s.id) && isOnRoute(s, line, progress.tracks))
   ?? line.stations.find((s) => !isRead(progress, s.id))
   ?? null;
+
+/**
+ * Whether a stage's stations are behind the reader, judged on the route
+ * everyone rides. Their own selections stay out of it: picking one of the
+ * stage's lines would otherwise put unread stops inside the stage and take the
+ * question away halfway through answering it.
+ */
+function stageComplete(curriculum: Curriculum, stage: Stage, progress: Progress): boolean {
+  return stage.lines.every((id) => {
+    const line = curriculum.lines.find((l) => l.id === id);
+    return !line || line.stations.every((s) => !isOnRoute(s, line, []) || isRead(progress, s.id));
+  });
+}
+
+/**
+ * Whether it is time to ask which specialisations the reader wants: the stage
+ * the curriculum marks as the point of choice is behind them, and they have not
+ * settled the question yet. Everything up to there is the same route for
+ * everyone, which is exactly why the choice can wait until then.
+ */
+export const chooseDue = (curriculum: Curriculum, progress: Progress): boolean =>
+  progress.tracksAt === null && curriculum.stages.some((stage) => stage.choose && stageComplete(curriculum, stage, progress));
+
+/** How many stops picking a specialisation would add to the route. */
+export const trackStops = (line: Line): number =>
+  line.stations.filter((s) => isOnRoute(s, line, [line.id]) && !isOnRoute(s, line, [])).length;
 
 export const prereqsMet = (station: Station, progress: Progress) =>
   (station.prereqs ?? []).every((id) => isRead(progress, id));

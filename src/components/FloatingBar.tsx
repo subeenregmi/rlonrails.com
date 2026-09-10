@@ -17,7 +17,7 @@ interface FloatingBarProps {
   focusLineId: string | null;
   days: Record<string, number>;
   tracks: string[];
-  onToggleTrack: (lineId: string) => void;
+  onChooseTracks: () => void;
   onJourney: () => void;
   onHoverLine: (id: string | null) => void;
   onPickLine: (id: string) => void;
@@ -46,10 +46,11 @@ function useCompact() {
 }
 
 export function FloatingBar(props: FloatingBarProps) {
-  const { totals, trainCount, lines, progressByLine, focusLineId, days, tracks, onToggleTrack, onJourney, onHoverLine, onPickLine, onExport, onImport, onReset, onSelectAll } = props;
+  const { totals, trainCount, lines, progressByLine, focusLineId, days, tracks, onChooseTracks, onJourney, onHoverLine, onPickLine, onExport, onImport, onReset, onSelectAll } = props;
   const [open, setOpen] = useState(false);
   const [barOpen, setBarOpen] = useState(false);
   const compact = useCompact();
+  const chosen = lines.filter((line) => tracks.includes(line.id));
   const rootRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   // Anything that acts on the map puts the bar away with it, so a landscape
@@ -168,24 +169,23 @@ export function FloatingBar(props: FloatingBarProps) {
             </div>
             <div>
               <h2 className="mb-1 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Your route</h2>
-              <p className="mb-2 text-[11.5px] leading-snug text-ink-faint">Core stations and the exercises on the spine are for everyone. Pick the specialisations you actually intend to do; their stations and exercises then count towards your route.</p>
-              <div className="flex flex-wrap gap-1.5">
-                {lines.filter((line) => line.track).map((line) => {
-                  const on = tracks.includes(line.id);
-                  return (
-                    <button
+              <p className="mb-2 text-[11.5px] leading-snug text-ink-faint">Core stations and the exercises on the spine are for everyone. Specialisations are the rest: choose the ones you mean to do and their stations join your route. The map asks once, after the research sampler.</p>
+              <div className="mb-2 flex flex-wrap gap-1">
+                {chosen.length === 0
+                  ? <span className="text-[11.5px] text-ink-faint">None chosen yet</span>
+                  : chosen.map((line) => (
+                    <span
                       key={line.id}
-                      type="button"
-                      onClick={() => onToggleTrack(line.id)}
-                      aria-pressed={on}
-                      className={cx("rounded-full border px-2.5 py-1 text-[12px] transition", on ? "border-transparent text-white" : "border-rule text-ink-soft hover:bg-tint")}
-                      style={on ? { background: TFL_COLOURS[line.tfl], color: isLightLine(line.tfl) ? "#1a1a1a" : "#fff" } : undefined}
+                      className="rounded-full px-2 py-px text-[11px]"
+                      style={{ background: TFL_COLOURS[line.tfl], color: isLightLine(line.tfl) ? "#1a1a1a" : "#fff" }}
                     >
                       {line.short}
-                    </button>
-                  );
-                })}
+                    </span>
+                  ))}
               </div>
+              <button type="button" className={tool} onClick={() => { fold(); onChooseTracks(); }}>
+                {chosen.length === 0 ? "Choose specialisations" : "Change specialisations"}
+              </button>
             </div>
             <div>
               <h2 className="mb-2 text-[11px] uppercase tracking-[0.1em] text-ink-soft">Data</h2>
