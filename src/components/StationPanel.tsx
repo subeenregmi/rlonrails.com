@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { Line, LogEntry, Resource, ResourceKind, Station } from "@/lib/curriculum";
+import { CURRICULUM, logResources, type Line, type LogEntry, type Resource, type ResourceKind, type Station } from "@/lib/curriculum";
 import {
   SKILLS, STATUSES, deliverables, emptyStation, isOnRoute, lineProgress, requirement, stationProgress, statusOf,
   type Progress, type Requirement, type Skill, type Status,
 } from "@/lib/progress";
 import { TFL_COLOURS, textOn } from "@/lib/tfl";
+import { KIND_ICON, KindBadge, sourceHeading, sourceKind, sourceWord } from "@/lib/kinds";
 import { cx } from "@/lib/cx";
 import { ArrowLeftIcon, ArrowRightIcon, ArrowTopRightOnSquareIcon, LockClosedIcon } from "@heroicons/react/16/solid";
 import { XMarkIcon } from "@heroicons/react/20/solid";
@@ -44,19 +45,6 @@ interface StationPanelProps {
   onClose: () => void;
 }
 
-const KIND_LABEL: Record<ResourceKind, string> = {
-  paper: "Paper", chapter: "Chapter", book: "Book", video: "Video", course: "Course", code: "Code", blog: "Blog", site: "Web",
-};
-const KIND_STYLE: Record<ResourceKind, string> = {
-  paper: "bg-[#003688] text-white",
-  chapter: "bg-[#EE7C0E] text-white",
-  book: "bg-[#B36305] text-white",
-  video: "bg-[#E32017] text-white",
-  course: "bg-[#6950A1] text-white",
-  code: "bg-[#00782A] text-white",
-  blog: "bg-[#0098D4] text-white",
-  site: "bg-[#A0A5A9] text-white",
-};
 const STATUS_LABEL: Record<Status, string> = { unread: "Not started", reading: "Reading", read: "Done" };
 const TAG_LABEL: Record<Station["tag"], string> = { core: "Core", track: "Track", reference: "Reference", exercise: "Exercise" };
 const TAG_STYLE: Record<Station["tag"], string> = {
@@ -79,9 +67,10 @@ const SKILL_HINT: Record<Skill, string> = {
 // new one every call, and that costs tens of milliseconds on a phone — paid on
 // every re-render of a read station's panel, so on every tick.
 let dateFormat: Intl.DateTimeFormat | null = null;
+/** A station that owns a book or a course whose parts are taught elsewhere. */
+const isSourceStation = (station: Station) => logResources(CURRICULUM, station.id).length > 0;
+
 const fmtDate = (iso: string) => (dateFormat ??= new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" })).format(new Date(iso));
-const sourceWord = (station: Station) =>
-  station.resources.some((r) => r.kind === "book") ? "book" : station.resources.some((r) => r.kind === "course") ? "course" : "set";
 
 export function StationPanel(props: StationPanelProps) {
   const { view, progress, saveError, onStatus, onSkill, onToggleDeliverable, onToggleResource, onSelect, onClose } = props;
@@ -100,6 +89,10 @@ export function StationPanel(props: StationPanelProps) {
   const logDone = log.filter((e) => resources[e.resource.id]).length;
   const ownDone = station ? station.resources.filter((r) => resources[r.id]).length : 0;
   const complete = log.length > 0 && logDone === log.length && ownDone === (station?.resources.length ?? 0);
+  // A station that owns a book or a course, with its chapters scattered over
+  // the map. What it holds is the whole of the panel: the reading is the
+  // station, so it is listed rather than announced under Status.
+  const isSource = Boolean(station) && log.length > 0;
   const req = station ? requirement(station, resources) : null;
   const dels = station ? deliverables(station, current.deliverables) : null;
   const onRoute = station && line ? isOnRoute(station, line, progress.tracks) : true;
@@ -129,7 +122,10 @@ export function StationPanel(props: StationPanelProps) {
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
-            <div className="pr-8 text-[11px] uppercase tracking-[0.1em] opacity-90">{line.phase} · {station ? line.name : `${line.stations.length} stops`}</div>
+            <div className="flex items-center gap-1.5 pr-8 text-[11px] uppercase tracking-[0.1em] opacity-90">
+              {isSource && station && <SourceIcon station={station} className="h-3.5 w-3.5 flex-none" />}
+              <span className="truncate">{line.phase} · {station ? line.name : `${line.stations.length} stops`}</span>
+            </div>
             <h2 className="mt-1.5 text-[20px] leading-tight">{station ? station.title : line.name}</h2>
             <div className="mt-2.5 text-[12px] opacity-80">
               {station ? `Stop ${index + 1} of ${line.stations.length} · ${station.name}` : `${lineProgress(line, progress).read} of ${line.stations.length} stations read`}
@@ -137,7 +133,23 @@ export function StationPanel(props: StationPanelProps) {
           </header>
 
           {!station && <LineStops line={line} progress={progress} colour={colour} onSelect={onSelect} />}
-          {station && (
+          {station && isSource && (
+            <SourceView
+              station={station}
+              line={line}
+              log={log}
+              resources={resources}
+              colour={colour}
+              done={ownDone + logDone}
+              complete={complete}
+              saveError={saveError}
+              prev={prev}
+              next={next}
+              onToggle={onToggleResource}
+              onSelect={onSelect}
+            />
+          )}
+          {station && !isSource && (
           <div className="px-5 pt-4">
             <p className="text-[13px] leading-snug text-ink-soft">{station.meta}</p>
             <div className="mt-3 flex items-baseline gap-2">
@@ -190,11 +202,6 @@ export function StationPanel(props: StationPanelProps) {
               {current.status === "read" && current.readAt && `Read on ${fmtDate(current.readAt)}`}
               {current.status === "reading" && dels && dels.total > 0 && `${dels.done} of ${dels.total} deliverables`}
               {current.status === "reading" && req && dels?.total === 0 && `${req.required.done} of ${req.required.total} required${req.pick.total ? ` · ${req.pick.done} of ${req.pick.need} picked` : ""}`}
-              {log.length > 0 && (
-                <span className={cx("block", complete && "font-bold")} style={complete ? { color: colour } : undefined}>
-                  {complete ? `Whole ${sourceWord(station)} complete` : `Whole ${sourceWord(station)} · ${ownDone + logDone} / ${station.resources.length + log.length}`}
-                </span>
-              )}
               {saveError && <span className="block text-tfl-red">Could not save to browser storage.</span>}
             </div>
 
@@ -223,47 +230,8 @@ export function StationPanel(props: StationPanelProps) {
             )}
 
             {req && <ReadList station={station} req={req} resources={resources} colour={colour} onToggle={onToggleResource} />}
-            {log.length > 0 && <LogList log={log} resources={resources} done={logDone} colour={colour} onToggle={onToggleResource} onSelect={onSelect} />}
 
-            <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">Key idea</h3>
-            <p className="text-[14.5px] leading-normal">{station.idea}</p>
-            <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">Forward link</h3>
-            <p className="text-[14.5px] leading-normal">{station.fwd}</p>
-
-            {connections.length > 0 && (
-              <>
-                <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">Connections</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {connections.map((c) => (
-                    <button
-                      key={c.station.id}
-                      type="button"
-                      onClick={() => onSelect(c.station.id)}
-                      title={`${c.line.name}: ${c.station.title}`}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-tint py-1 pr-2.5 pl-1.5 text-[12.5px] hover:bg-tint-strong"
-                    >
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: TFL_COLOURS[c.line.tfl], boxShadow: c.read ? "inset 0 0 0 2px var(--surface)" : undefined }} />
-                      {c.station.name}
-                      {c.direction === "to" ? <ArrowRightIcon className="h-3 w-3 text-ink-faint" /> : <ArrowLeftIcon className="h-3 w-3 text-ink-faint" />}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">About this line</h3>
-            <p className="text-[13px] leading-normal text-ink-soft">{line.goal}</p>
-
-            <div className="mt-5 flex justify-between gap-2">
-              <button type="button" disabled={!prev} onClick={() => prev && onSelect(prev.id)} className="flex flex-1 items-center gap-1.5 rounded-full bg-tint px-3.5 py-2 text-left text-[13px] hover:bg-tint-strong disabled:cursor-default disabled:opacity-40">
-                <ArrowLeftIcon className="h-3.5 w-3.5 flex-none" />
-                <span className="truncate">{prev ? prev.name : "Start of line"}</span>
-              </button>
-              <button type="button" disabled={!next} onClick={() => next && onSelect(next.id)} className="flex flex-1 items-center justify-end gap-1.5 rounded-full bg-tint px-3.5 py-2 text-right text-[13px] hover:bg-tint-strong disabled:cursor-default disabled:opacity-40">
-                <span className="truncate">{next ? next.name : "End of line"}</span>
-                <ArrowRightIcon className="h-3.5 w-3.5 flex-none" />
-              </button>
-            </div>
+            <PanelTail station={station} line={line} connections={connections} prev={prev} next={next} idea onSelect={onSelect} />
           </div>
           )}
         </div>
@@ -291,7 +259,10 @@ function LineStops({ line, progress, colour, onSelect }: { line: Line; progress:
                   }}
                 />
                 <span className="min-w-0 flex-1">
-                  <span className={cx("block truncate text-[13.5px] leading-snug", status === "read" && "text-ink-soft")}>{station.name}</span>
+                  <span className={cx("flex items-center gap-1.5 text-[13.5px] leading-snug", status === "read" && "text-ink-soft")}>
+                    {isSourceStation(station) && <SourceIcon station={station} className="h-3.5 w-3.5 flex-none text-ink-faint" />}
+                    <span className="truncate">{station.name}</span>
+                  </span>
                   <span className="block truncate text-[11.5px] text-ink-faint">{station.title}</span>
                 </span>
                 <span className={cx("flex-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.06em] text-white", TAG_STYLE[station.tag])}>{TAG_LABEL[station.tag]}</span>
@@ -359,41 +330,215 @@ function ReadList({ station, req, resources, colour, onToggle }: { station: Stat
   );
 }
 
-function LogList({ log, resources, done, colour, onToggle, onSelect }: { log: LogEntry[]; resources: Record<string, boolean>; done: number; colour: string; onToggle: (id: string) => void; onSelect: (id: string) => void }) {
-  const groups: { station: Station; line: Line; entries: LogEntry[] }[] = [];
-  for (const entry of log) {
-    const last = groups[groups.length - 1];
-    if (last && last.station.id === entry.station.id) last.entries.push(entry);
-    else groups.push({ station: entry.station, line: entry.line, entries: [entry] });
-  }
+/** What a source station is, as a shape: a book, a course, a set of repos. */
+function SourceIcon({ station, className }: { station: Station; className?: string }) {
+  const Icon = KIND_ICON[sourceKind(station)];
+  return <Icon className={className} aria-hidden="true" />;
+}
+
+interface SourceItem {
+  resource: Resource;
+  /** The station that teaches it. Null for the parts that are read here. */
+  at: { station: Station; line: Line } | null;
+}
+
+const ITEM_HEADING: Partial<Record<ResourceKind, string>> = {
+  chapter: "Chapters", video: "Lectures", code: "Repositories", site: "Pages", paper: "Papers", blog: "Posts",
+};
+
+/** What the list is a list of, taken from what most of it is made of. */
+function itemHeading(items: SourceItem[]): string {
+  const counts = new Map<ResourceKind, number>();
+  for (const item of items) counts.set(item.resource.kind, (counts.get(item.resource.kind) ?? 0) + 1);
+  let best: ResourceKind | null = null;
+  for (const [kind, count] of counts) if (!best || count > (counts.get(best) ?? 0)) best = kind;
+  return (best && ITEM_HEADING[best]) ?? "Readings";
+}
+
+interface SourceViewProps {
+  station: Station;
+  line: Line;
+  log: LogEntry[];
+  resources: Record<string, boolean>;
+  colour: string;
+  done: number;
+  complete: boolean;
+  saveError: boolean;
+  prev: Station | null;
+  next: Station | null;
+  onToggle: (resourceId: string) => void;
+  onSelect: (id: string) => void;
+}
+
+/**
+ * A station that holds a whole book or course. Nothing here is a claim about
+ * the reader — no status to set, no skills to declare — because the station is
+ * the source itself. One list of everything it is made of, in the order the
+ * map hands it to you, each part saying which stop teaches it.
+ */
+function SourceView(props: SourceViewProps) {
+  const { station, line, log, resources, colour, done, complete, saveError, prev, next, onToggle, onSelect } = props;
+  // The whole thing, as opposed to a part of it: the PDF, the course page, the
+  // homepage that is not on anyone's reading list.
+  const links = station.resources.filter((r) => r.kind === "book" || r.kind === "course" || (r.kind === "site" && r.role === "optional"));
+  const items: SourceItem[] = [
+    ...station.resources.filter((r) => !links.includes(r)).map((resource) => ({ resource, at: null })),
+    ...log.map((entry) => ({ resource: entry.resource, at: { station: entry.station, line: entry.line } })),
+  ];
+  const total = station.resources.length + log.length;
+  const itemsDone = items.filter((item) => resources[item.resource.id]).length;
+  const word = sourceWord(station);
+  // The one requirement worth keeping in words now that the groups are gone.
+  const picks = station.resources.filter((r) => r.role === "pick").length;
+
+  return (
+    <div className="px-5 pt-4">
+      <p className="text-[13px] leading-snug text-ink-soft">{station.meta}</p>
+      <div className="mt-3 flex items-baseline gap-2">
+        <span className={cx("inline-block flex-none rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.08em] text-white", TAG_STYLE[station.tag])}>{TAG_LABEL[station.tag]}</span>
+        <span className="text-[12px] leading-snug text-ink-faint">{TAG_NOTE[station.tag]}</span>
+      </div>
+
+      <div className="mt-4 flex items-center gap-1.5 text-[13px]">
+        <span className={cx(complete && "font-bold")} style={complete ? { color: colour } : undefined}>
+          {complete ? `Whole ${word} complete` : `Whole ${word} · ${done} of ${total}`}
+        </span>
+        {complete && <Tick className="h-3.5 w-3.5" style={{ color: colour }} />}
+      </div>
+      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-bar">
+        <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${(100 * done) / total}%`, background: colour }} />
+      </div>
+      {saveError && <p className="mt-1.5 text-[12px] text-tfl-red">Could not save to browser storage.</p>}
+
+      <p className="mt-4 text-[14.5px] leading-normal">{station.idea}</p>
+      <p className="mt-2 text-[12px] leading-snug text-ink-faint">
+        Tick a part here or at the stop that teaches it — it is the same tick either way.
+      </p>
+
+      {links.length > 0 && (
+        <>
+          <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">{sourceHeading(station)}</h3>
+          <ul className="flex flex-col gap-1.5">
+            {links.map((resource) => (
+              <ResourceRow key={resource.id} resource={resource} done={Boolean(resources[resource.id])} colour={colour} onToggle={() => onToggle(resource.id)} />
+            ))}
+          </ul>
+        </>
+      )}
+
+      <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">{itemHeading(items)} · {itemsDone} / {items.length}</h3>
+      {picks > 1 && <p className="mb-1.5 text-[11.5px] text-ink-faint">One of these is enough for this stop. The rest are there when a project asks for them.</p>}
+      <ul className="flex flex-col gap-1.5">
+        {items.map((item) => (
+          <SourceRow
+            key={item.resource.id}
+            item={item}
+            done={Boolean(resources[item.resource.id])}
+            colour={item.at ? TFL_COLOURS[item.at.line.tfl] : colour}
+            onToggle={() => onToggle(item.resource.id)}
+            onSelect={onSelect}
+          />
+        ))}
+      </ul>
+
+      {/* No Connections here: every part above already names the stop that teaches it. */}
+      <PanelTail station={station} line={line} connections={[]} prev={prev} next={next} onSelect={onSelect} />
+    </div>
+  );
+}
+
+function SourceRow({ item, done, colour, onToggle, onSelect }: { item: SourceItem; done: boolean; colour: string; onToggle: () => void; onSelect: (id: string) => void }) {
+  const { resource, at } = item;
+  return (
+    <li className={cx("flex items-start gap-2.5 rounded-lg border px-2.5 py-2 transition", done ? "border-transparent bg-tint" : "border-rule bg-surface")}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-pressed={done}
+        aria-label={done ? `Mark ${resource.label} not done` : `Mark ${resource.label} done`}
+        className="mt-px flex h-5 w-5 flex-none items-center justify-center rounded-full border-2 text-white transition"
+        style={{ borderColor: colour, background: done ? colour : "var(--surface)" }}
+      >
+        {done && <Tick className="h-3 w-3" />}
+      </button>
+      <div className="min-w-0 flex-1">
+        <a
+          href={resource.url}
+          target="_blank"
+          rel="noreferrer noopener"
+          className={cx("block text-[13.5px] leading-snug underline-offset-2 hover:underline", done && "text-ink-soft")}
+        >
+          {resource.label}
+          <ArrowTopRightOnSquareIcon className="ml-1 inline h-3 w-3 align-[-1px] text-ink-faint" />
+        </a>
+        {at ? (
+          <button
+            type="button"
+            onClick={() => onSelect(at.station.id)}
+            title={`${at.line.name}: ${at.station.title}`}
+            className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-full py-0.5 pr-1.5 pl-1 text-[11.5px] text-ink-soft hover:bg-tint-strong"
+          >
+            <span className="h-2 w-2 flex-none rounded-full" style={{ background: colour }} />
+            <span className="truncate">{at.line.phase} · {at.station.name}</span>
+            <ArrowRightIcon className="h-3 w-3 flex-none text-ink-faint" />
+          </button>
+        ) : (
+          <span className="mt-1 block text-[11.5px] text-ink-faint">This stop</span>
+        )}
+      </div>
+      <KindBadge kind={resource.kind} compact className="mt-px" />
+    </li>
+  );
+}
+
+/** Everything below a station's own business: where it points, and where to go next. */
+function PanelTail({ station, line, connections, prev, next, idea = false, onSelect }: {
+  station: Station; line: Line; connections: Connection[]; prev: Station | null; next: Station | null; idea?: boolean; onSelect: (id: string) => void;
+}) {
   return (
     <>
-      <h3 className="mt-5 mb-1.5 flex items-center gap-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">
-        Across the map · {done} / {log.length}
-        {done === log.length && <Tick className="h-3.5 w-3.5" style={{ color: colour }} />}
-      </h3>
-      <div className="mb-3 h-2 overflow-hidden rounded-full bg-bar">
-        <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${(100 * done) / log.length}%`, background: colour }} />
-      </div>
-      <p className="mb-3 text-[12px] leading-snug text-ink-soft">Chapters and lectures from this source that live on other stations. Ticking them here ticks them there.</p>
-      <div className="flex flex-col gap-3">
-        {groups.map((group) => {
-          const colour = TFL_COLOURS[group.line.tfl];
-          return (
-            <div key={group.station.id}>
-              <button type="button" onClick={() => onSelect(group.station.id)} className="mb-1 inline-flex items-center gap-1.5 rounded-full py-0.5 pr-2 pl-1 text-[12px] text-ink-soft hover:bg-tint">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: colour }} />
-                {group.line.phase} · {group.station.name}
-                <ArrowRightIcon className="h-3 w-3 text-ink-faint" />
+      {idea && (
+        <>
+          <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">Key idea</h3>
+          <p className="text-[14.5px] leading-normal">{station.idea}</p>
+        </>
+      )}
+      <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">Forward link</h3>
+      <p className="text-[14.5px] leading-normal">{station.fwd}</p>
+
+      {connections.length > 0 && (
+        <>
+          <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">Connections</h3>
+          <div className="flex flex-wrap gap-1.5">
+            {connections.map((c) => (
+              <button
+                key={c.station.id}
+                type="button"
+                onClick={() => onSelect(c.station.id)}
+                title={`${c.line.name}: ${c.station.title}`}
+                className="inline-flex items-center gap-1.5 rounded-full bg-tint py-1 pr-2.5 pl-1.5 text-[12.5px] hover:bg-tint-strong"
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: TFL_COLOURS[c.line.tfl], boxShadow: c.read ? "inset 0 0 0 2px var(--surface)" : undefined }} />
+                {c.station.name}
+                {c.direction === "to" ? <ArrowRightIcon className="h-3 w-3 text-ink-faint" /> : <ArrowLeftIcon className="h-3 w-3 text-ink-faint" />}
               </button>
-              <ul className="flex flex-col gap-1.5">
-                {group.entries.map((entry) => (
-                  <ResourceRow key={entry.resource.id} resource={entry.resource} done={Boolean(resources[entry.resource.id])} colour={colour} onToggle={() => onToggle(entry.resource.id)} />
-                ))}
-              </ul>
-            </div>
-          );
-        })}
+            ))}
+          </div>
+        </>
+      )}
+
+      <h3 className="mt-5 mb-1.5 text-[11px] uppercase tracking-[0.1em] text-ink-faint">About this line</h3>
+      <p className="text-[13px] leading-normal text-ink-soft">{line.goal}</p>
+
+      <div className="mt-5 flex justify-between gap-2">
+        <button type="button" disabled={!prev} onClick={() => prev && onSelect(prev.id)} className="flex flex-1 items-center gap-1.5 rounded-full bg-tint px-3.5 py-2 text-left text-[13px] hover:bg-tint-strong disabled:cursor-default disabled:opacity-40">
+          <ArrowLeftIcon className="h-3.5 w-3.5 flex-none" />
+          <span className="truncate">{prev ? prev.name : "Start of line"}</span>
+        </button>
+        <button type="button" disabled={!next} onClick={() => next && onSelect(next.id)} className="flex flex-1 items-center justify-end gap-1.5 rounded-full bg-tint px-3.5 py-2 text-right text-[13px] hover:bg-tint-strong disabled:cursor-default disabled:opacity-40">
+          <span className="truncate">{next ? next.name : "End of line"}</span>
+          <ArrowRightIcon className="h-3.5 w-3.5 flex-none" />
+        </button>
       </div>
     </>
   );
@@ -423,7 +568,7 @@ function ResourceRow({ resource, done, colour, onToggle }: { resource: Resource;
           <ArrowTopRightOnSquareIcon className="ml-1 inline h-3 w-3 align-[-1px] text-ink-faint" />
         </a>
       </div>
-      <span className={cx("flex-none rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.06em]", KIND_STYLE[resource.kind])}>{KIND_LABEL[resource.kind]}</span>
+      <KindBadge kind={resource.kind} className="mt-px" />
     </li>
   );
 }
