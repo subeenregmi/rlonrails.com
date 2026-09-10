@@ -260,8 +260,8 @@ function LineStops({ line, progress, colour, onSelect }: { line: Line; progress:
                 />
                 <span className="min-w-0 flex-1">
                   <span className={cx("flex items-center gap-1.5 text-[13.5px] leading-snug", status === "read" && "text-ink-soft")}>
-                    {isSourceStation(station) && <SourceIcon station={station} className="h-3.5 w-3.5 flex-none text-ink-faint" />}
                     <span className="truncate">{station.name}</span>
+                    {isSourceStation(station) && <SourceIcon station={station} className="h-3.5 w-3.5 flex-none text-ink-faint" />}
                   </span>
                   <span className="block truncate text-[11.5px] text-ink-faint">{station.title}</span>
                 </span>
@@ -447,6 +447,20 @@ function SourceView(props: SourceViewProps) {
   );
 }
 
+/** A title and its "opens elsewhere" mark, which never wraps away from it. */
+function LinkLabel({ label }: { label: string }) {
+  const cut = label.lastIndexOf(" ");
+  return (
+    <>
+      {cut === -1 ? null : label.slice(0, cut + 1)}
+      <span className="whitespace-nowrap">
+        {cut === -1 ? label : label.slice(cut + 1)}
+        <ArrowTopRightOnSquareIcon className="ml-1 inline h-3 w-3 align-[-1px] text-ink-faint" />
+      </span>
+    </>
+  );
+}
+
 function SourceRow({ item, done, colour, onToggle, onSelect }: { item: SourceItem; done: boolean; colour: string; onToggle: () => void; onSelect: (id: string) => void }) {
   const { resource, at } = item;
   return (
@@ -468,8 +482,7 @@ function SourceRow({ item, done, colour, onToggle, onSelect }: { item: SourceIte
           rel="noreferrer noopener"
           className={cx("block text-[13.5px] leading-snug underline-offset-2 hover:underline", done && "text-ink-soft")}
         >
-          {resource.label}
-          <ArrowTopRightOnSquareIcon className="ml-1 inline h-3 w-3 align-[-1px] text-ink-faint" />
+          <LinkLabel label={resource.label} />
         </a>
         {at ? (
           <button
@@ -478,9 +491,9 @@ function SourceRow({ item, done, colour, onToggle, onSelect }: { item: SourceIte
             title={`${at.line.name}: ${at.station.title}`}
             className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-full py-0.5 pr-1.5 pl-1 text-[11.5px] text-ink-soft hover:bg-tint-strong"
           >
-            <span className="h-2 w-2 flex-none rounded-full" style={{ background: colour }} />
+            <span className="relative -top-px h-2 w-2 flex-none rounded-full" style={{ background: colour }} />
             <span className="truncate">{at.line.phase} · {at.station.name}</span>
-            <ArrowRightIcon className="h-3 w-3 flex-none text-ink-faint" />
+            <ArrowRightIcon className="relative -top-px h-3 w-3 flex-none text-ink-faint" />
           </button>
         ) : (
           <span className="mt-1 block text-[11.5px] text-ink-faint">This stop</span>
@@ -564,8 +577,7 @@ function ResourceRow({ resource, done, colour, onToggle }: { resource: Resource;
           rel="noreferrer noopener"
           className={cx("block text-[13.5px] leading-snug underline-offset-2 hover:underline", done && "text-ink-soft")}
         >
-          {resource.label}
-          <ArrowTopRightOnSquareIcon className="ml-1 inline h-3 w-3 align-[-1px] text-ink-faint" />
+          <LinkLabel label={resource.label} />
         </a>
       </div>
       <KindBadge kind={resource.kind} className="mt-px" />
