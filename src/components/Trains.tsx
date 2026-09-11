@@ -107,13 +107,19 @@ const tailOffset = (cars: number) => trainLength(cars) - HALF_CAR;
 const pickCars = () => {
   const total = CAR_WEIGHTS.reduce((a, b) => a + b, 0);
   let r = Math.random() * total;
-  for (let n = 0; n < CAR_WEIGHTS.length; n++) { r -= CAR_WEIGHTS[n]; if (r < 0) return n; }
+  for (let n = 0; n < CAR_WEIGHTS.length; n++) {
+    r -= CAR_WEIGHTS[n];
+    if (r < 0) return n;
+  }
   return 3;
 };
 
 const shuffled = <T,>(list: T[]) => {
   const out = [...list];
-  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
   return out;
 };
 
@@ -121,26 +127,32 @@ function buildRoute(lineId: string, list: Interval[], layout: MapLayout): Route 
   const sorted = [...list].sort((a, b) => a[0] - b[0]);
   const merged: Interval[] = [];
   for (const [a, b] of sorted) {
-    const last = merged[merged.length - 1];
+    const last = merged.at(-1);
     if (last && a <= last[1] + 0.5) last[1] = Math.max(last[1], b);
     else merged.push([a, b]);
   }
-  if (!merged.length) return null;
-  const line = CURRICULUM.lines.find((l) => l.id === lineId)!;
+  const lastInterval = merged.at(-1);
+  if (!lastInterval) return null;
+  const line = CURRICULUM.lines.find((l) => l.id === lineId);
+  if (!line) throw new Error(`${lineId}: not in the curriculum`);
   const length = layout.lines[lineId].length;
-  const wraps = Boolean(line.closed) && merged[0][0] <= 0.5 && merged[merged.length - 1][1] >= length - 0.5;
+  const wraps = Boolean(line.closed) && merged[0][0] <= 0.5 && lastInterval[1] >= length - 0.5;
   const stations = line.stations.map((s) => layout.stations[s.id].pos).sort((a, b) => a - b);
   return { intervals: merged, wraps, length, stations };
 }
 
-const containing = (route: Route, s: number) => route.intervals.find(([a, b]) => s >= a - 0.01 && s <= b + 0.01) ?? null;
+const containing = (route: Route, s: number) =>
+  route.intervals.find(([a, b]) => s >= a - 0.01 && s <= b + 0.01) ?? null;
 
 function nearest(route: Route, s: number): Interval {
   let best = route.intervals[0];
-  let bestDist = Infinity;
+  let bestDist = Number.POSITIVE_INFINITY;
   for (const iv of route.intervals) {
     const d = s < iv[0] ? iv[0] - s : s > iv[1] ? s - iv[1] : 0;
-    if (d < bestDist) { best = iv; bestDist = d; }
+    if (d < bestDist) {
+      best = iv;
+      bestDist = d;
+    }
   }
   return best;
 }
@@ -149,20 +161,27 @@ function nextStation(route: Route, s: number, dir: 1 | -1, limit: number, exclud
   const ahead = route.stations.filter(
     (p) => p !== exclude && (dir > 0 ? p > s + 1 && p < limit - 0.01 : p < s - 1 && p > limit + 0.01),
   );
-  if (!ahead.length) return null;
+  if (ahead.length === 0) return null;
   return dir > 0 ? Math.min(...ahead) : Math.max(...ahead);
 }
 
-const easeStop = (remaining: number, cars: number) => Math.min(1, Math.max(CREEP, Math.sqrt(Math.max(0, remaining) / (BRAKE_DISTANCE + trainLength(cars)))));
-const easeLaunch = (travelled: number) => Math.min(1, Math.max(CREEP, Math.sqrt(Math.max(0, travelled) / LAUNCH_DISTANCE)));
-const wrapPos = (route: Route, s: number) => (route.wraps ? ((s % route.length) + route.length) % route.length : Math.min(Math.max(s, 0), route.length));
+const easeStop = (remaining: number, cars: number) =>
+  Math.min(1, Math.max(CREEP, Math.sqrt(Math.max(0, remaining) / (BRAKE_DISTANCE + trainLength(cars)))));
+const easeLaunch = (travelled: number) =>
+  Math.min(1, Math.max(CREEP, Math.sqrt(Math.max(0, travelled) / LAUNCH_DISTANCE)));
+const wrapPos = (route: Route, s: number) =>
+  route.wraps ? ((s % route.length) + route.length) % route.length : Math.min(Math.max(s, 0), route.length);
 
 const inView = (view: View | null, x: number, y: number, margin: number) =>
-  !view || (x >= view.x - margin && x <= view.x + view.w + margin && y >= view.y - margin && y <= view.y + view.h + margin);
+  !view ||
+  (x >= view.x - margin && x <= view.x + view.w + margin && y >= view.y - margin && y <= view.y + view.h + margin);
 
 const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
   ctx.beginPath();
-  if (typeof ctx.roundRect === "function") { ctx.roundRect(x, y, w, h, r); return; }
+  if (typeof ctx.roundRect === "function") {
+    ctx.roundRect(x, y, w, h, r);
+    return;
+  }
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
   ctx.arcTo(x + w, y + h, x, y + h, r);
@@ -183,14 +202,35 @@ function drawCar(ctx: CanvasRenderingContext2D, livery: Livery, head: boolean, t
   ctx.fillStyle = livery.band;
   ctx.fill();
   ctx.fillStyle = livery.windows;
-  for (const wx of [-9.5, -2.3, 4.9]) { roundRect(ctx, wx, -4.6, 4.6, 4.2, 1); ctx.fill(); }
-  if (head) { ctx.beginPath(); ctx.arc(HALF_CAR - 1.4, 0, 1.7, 0, Math.PI * 2); ctx.fillStyle = HEAD_LAMP; ctx.fill(); }
-  if (tail) { ctx.beginPath(); ctx.arc(-HALF_CAR + 1.4, 0, 1.3, 0, Math.PI * 2); ctx.fillStyle = TAIL_LAMP; ctx.fill(); }
+  for (const wx of [-9.5, -2.3, 4.9]) {
+    roundRect(ctx, wx, -4.6, 4.6, 4.2, 1);
+    ctx.fill();
+  }
+  if (head) {
+    ctx.beginPath();
+    ctx.arc(HALF_CAR - 1.4, 0, 1.7, 0, Math.PI * 2);
+    ctx.fillStyle = HEAD_LAMP;
+    ctx.fill();
+  }
+  if (tail) {
+    ctx.beginPath();
+    ctx.arc(-HALF_CAR + 1.4, 0, 1.3, 0, Math.PI * 2);
+    ctx.fillStyle = TAIL_LAMP;
+    ctx.fill();
+  }
 }
 
-const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const reducedMotion = () => globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export const Trains = memo(function Trains({ layout, intervals, count, focusLineId, subscribe, river, revealAfterMs }: TrainsProps) {
+export const Trains = memo(function TrainsCanvas({
+  layout,
+  intervals,
+  count,
+  focusLineId,
+  subscribe,
+  river,
+  revealAfterMs,
+}: TrainsProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const trainsRef = useRef<Train[]>([]);
   const routesRef = useRef<Record<string, Route>>({});
@@ -201,8 +241,16 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
   const sizeRef = useRef({ w: 0, h: 0, dpr: 1 });
   const revealRef = useRef(revealAfterMs);
 
-  useEffect(() => subscribe((view) => { viewRef.current = view; }), [subscribe]);
-  useEffect(() => { focusRef.current = focusLineId; }, [focusLineId]);
+  useEffect(
+    () =>
+      subscribe((view) => {
+        viewRef.current = view;
+      }),
+    [subscribe],
+  );
+  useEffect(() => {
+    focusRef.current = focusLineId;
+  }, [focusLineId]);
 
   useEffect(() => {
     const routes: Record<string, Route> = {};
@@ -216,26 +264,30 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
     routesRef.current = routes;
     const lineIds = Object.keys(routes);
     const assigned: Record<string, number> = Object.fromEntries(lineIds.map((id) => [id, 0]));
-    const kept = trainsRef.current.filter((t) => routes[t.lineId]).slice(0, lineIds.length ? count : 0);
-    kept.forEach((t) => {
+    const kept = trainsRef.current.filter((t) => routes[t.lineId]).slice(0, lineIds.length > 0 ? count : 0);
+    for (const t of kept) {
       assigned[t.lineId]++;
-      if (t.phase === "approach" || t.target === null) return;
+      if (t.phase === "approach" || t.target === null) continue;
       const iv = containing(routes[t.lineId], t.s);
       const onRoute = iv !== null && t.target.pos >= iv[0] - 0.01 && t.target.pos <= iv[1] + 0.01;
       if (!onRoute) t.target = null;
-    });
-    const pickLine = () => lineIds.reduce((best, id) => (assigned[id] / weights[id] < assigned[best] / weights[best] ? id : best), lineIds[0]);
+    }
+    const pickLine = () =>
+      lineIds.reduce(
+        (best, id) => (assigned[id] / weights[id] < assigned[best] / weights[best] ? id : best),
+        lineIds[0],
+      );
     const nextLivery = () => {
       if (liveryIndex.current % LIVERIES.length === 0) liveriesRef.current = shuffled(LIVERIES);
       return liveriesRef.current[liveryIndex.current++ % LIVERIES.length];
     };
-    while (kept.length < count && lineIds.length) {
+    while (kept.length < count && lineIds.length > 0) {
       const lineId = pickLine();
       assigned[lineId]++;
       const route = routes[lineId];
       const iv = route.intervals[Math.floor(Math.random() * route.intervals.length)];
       const startStation = route.stations.filter((p) => p >= iv[0] && p <= iv[1]);
-      const from = startStation.length ? startStation[Math.floor(Math.random() * startStation.length)] : iv[0];
+      const from = startStation.length > 0 ? startStation[Math.floor(Math.random() * startStation.length)] : iv[0];
       const dir: 1 | -1 = from >= iv[1] - 0.5 ? -1 : from <= iv[0] + 0.5 ? 1 : Math.random() < 0.5 ? 1 : -1;
       kept.push({
         lineId,
@@ -311,15 +363,20 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
       ctx.save();
       if (water) {
         const clip = new Path2D();
-        clip.rect(view.x - CULL_MARGIN * 4, view.y - CULL_MARGIN * 4, view.w + CULL_MARGIN * 8, view.h + CULL_MARGIN * 8);
+        clip.rect(
+          view.x - CULL_MARGIN * 4,
+          view.y - CULL_MARGIN * 4,
+          view.w + CULL_MARGIN * 8,
+          view.h + CULL_MARGIN * 8,
+        );
         clip.addPath(water);
         ctx.clip(clip, "evenodd");
       }
 
-      trainsRef.current.forEach((train) => {
+      for (const train of trainsRef.current) {
         const route = routesRef.current[train.lineId];
         const line = layout.lines[train.lineId];
-        if (!route || !line) return;
+        if (!route || !line) continue;
         const wanted = focus && train.lineId !== focus ? DIM : 1;
         const rate = Math.min(1, dt / DIM_SECONDS);
         train.alpha += (wanted - train.alpha) * rate;
@@ -331,12 +388,12 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
           if (train.dwell <= 0) {
             if (train.reverseAfterStop) train.dir = train.dir > 0 ? -1 : 1;
             train.phase = "depart";
-            train.departAt = train.lastStop!;
+            train.departAt = train.lastStop ?? 0;
             train.s = train.departAt - train.dir * HALF_CAR;
             train.stopAt = null;
             train.target = null;
           }
-          return;
+          continue;
         }
 
         if (train.phase === "depart") {
@@ -347,17 +404,24 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
           let iv = containing(route, train.s);
           if (!iv) {
             iv = nearest(route, train.s);
-            if (train.phase !== "approach") { train.s = Math.min(Math.max(train.s, iv[0]), iv[1]); train.target = null; }
+            if (train.phase !== "approach") {
+              train.s = Math.min(Math.max(train.s, iv[0]), iv[1]);
+              train.target = null;
+            }
           }
           const limit = train.dir > 0 ? iv[1] : iv[0];
           const wrapping = route.wraps && (train.dir > 0 ? iv[1] >= route.length - 0.5 : iv[0] <= 0.5);
-          if (train.phase !== "approach" && (!train.target || (train.dir > 0 ? train.target.pos <= train.s : train.target.pos >= train.s))) {
+          if (
+            train.phase !== "approach" &&
+            (!train.target || (train.dir > 0 ? train.target.pos <= train.s : train.target.pos >= train.s))
+          ) {
             const pos = nextStation(route, train.s, train.dir, limit, train.lastStop);
             train.target = pos === null ? null : { pos, stop: Math.random() < train.stopChance };
           }
           const plannedStop = train.target?.stop ? train.target.pos : wrapping ? null : limit;
           const reverse = plannedStop !== null && !train.target?.stop;
-          const remaining = plannedStop === null ? Infinity : (plannedStop - train.s) * train.dir + tail;
+          const remaining =
+            plannedStop === null ? Number.POSITIVE_INFINITY : (plannedStop - train.s) * train.dir + tail;
           const v = plannedStop === null ? train.speed : train.speed * easeStop(remaining, train.cars);
           const next = train.s + train.dir * v * dt;
 
@@ -368,7 +432,7 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
             train.lastStop = plannedStop;
             train.reverseAfterStop = reverse;
             train.target = null;
-            return;
+            continue;
           }
           if (wrapping && plannedStop === null && (train.dir > 0 ? next >= iv[1] : next <= iv[0])) {
             train.s = train.dir > 0 ? next - route.length : next + route.length;
@@ -387,7 +451,7 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
         }
 
         const head = line.pointAt(wrapPos(route, train.s));
-        if (!inView(view, head.x, head.y, tail + CULL_MARGIN)) return;
+        if (!inView(view, head.x, head.y, tail + CULL_MARGIN)) continue;
 
         ctx.globalAlpha = reveal * train.alpha;
         for (let c = 0; c < train.cars; c++) {
@@ -418,7 +482,7 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
           drawCar(ctx, train.livery, c === 0, c === train.cars - 1);
           ctx.restore();
         }
-      });
+      }
       ctx.restore();
       ctx.globalAlpha = 1;
     };
@@ -426,5 +490,12 @@ export const Trains = memo(function Trains({ layout, intervals, count, focusLine
     return () => cancelAnimationFrame(frame);
   }, [layout, river]);
 
-  return <canvas ref={canvasRef} className="trains-canvas pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true" />;
+  return (
+    // biome-ignore lint/a11y/noAriaHiddenOnFocusable: a canvas without tabIndex is not focusable
+    <canvas
+      ref={canvasRef}
+      className="trains-canvas pointer-events-none absolute inset-0 size-full"
+      aria-hidden="true"
+    />
+  );
 });

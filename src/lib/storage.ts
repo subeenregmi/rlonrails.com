@@ -1,11 +1,11 @@
 import { CURRICULUM } from "./curriculum";
-import { emptyProgress, isValidProgress, sanitizeProgress, type Progress } from "./progress";
+import { emptyProgress, isValidProgress, type Progress, sanitizeProgress } from "./progress";
 
 export const STORAGE_KEY = "rl-underground.progress";
 
 function readStorage(): Progress {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = globalThis.localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyProgress();
     const parsed: unknown = JSON.parse(raw);
     return isValidProgress(parsed) ? sanitizeProgress(CURRICULUM, parsed) : emptyProgress();
@@ -20,7 +20,9 @@ const listeners = new Set<() => void>();
 export const progressStore = {
   subscribe(listener: () => void) {
     listeners.add(listener);
-    return () => { listeners.delete(listener); };
+    return () => {
+      listeners.delete(listener);
+    };
   },
   getSnapshot(): Progress {
     cached ??= readStorage();
@@ -30,7 +32,7 @@ export const progressStore = {
 };
 
 export function saveProgress(progress: Progress) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   cached = progress;
-  listeners.forEach((listener) => listener());
+  for (const listener of listeners) listener();
 }

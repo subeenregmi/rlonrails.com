@@ -1,11 +1,37 @@
 "use client";
 
-import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type RefObject } from "react";
-import { CURRICULUM, MAP_BOUNDS, START_VIEW, ZONES, type Line, type PillPoint, type Station } from "@/lib/curriculum";
-import { INTERCHANGE_RADIUS, RIVER, STATION_RADIUS, coastRings, coastWaves, lineBounds, riverCrossings, surfaceGeometry, terminusPoint, type IntroSchedule, type LineLayout, type MapLayout, type Pt, type Surface } from "@/lib/geometry";
-import { dashArray, isRead, statusOf, type Interval, type Progress, type Status } from "@/lib/progress";
-import { isLightLine } from "@/lib/tfl";
+import {
+  memo,
+  type Ref,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { CURRICULUM, type Line, MAP_BOUNDS, type PillPoint, START_VIEW, type Station, ZONES } from "@/lib/curriculum";
 import { cx } from "@/lib/cx";
+import {
+  coastRings,
+  coastWaves,
+  INTERCHANGE_RADIUS,
+  type IntroSchedule,
+  type LineLayout,
+  lineBounds,
+  type MapLayout,
+  type Pt,
+  RIVER,
+  riverCrossings,
+  STATION_RADIUS,
+  type Surface,
+  surfaceGeometry,
+  terminusPoint,
+} from "@/lib/geometry";
+import { dashArray, type Interval, isRead, type Progress, type Status, statusOf } from "@/lib/progress";
+import { isLightLine } from "@/lib/tfl";
 import { HerePin } from "./HerePin";
 import { Minimap, type View } from "./Minimap";
 import { Trains } from "./Trains";
@@ -18,6 +44,7 @@ export interface TubeMapHandle {
 }
 
 interface TubeMapProps {
+  ref?: Ref<TubeMapHandle>;
   layout: MapLayout;
   schedule: IntroSchedule;
   hereId: string | null;
@@ -45,7 +72,12 @@ const MAX_VIEW_SCALE = 1.15;
 const MAX_HIDDEN = 0.75;
 const NUDGE_MARGIN = 24;
 const WORLD_PAD = 40;
-type Bounds = { x: number; y: number; w: number; h: number };
+interface Bounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 const worldOf = (polygon: Pt[]): Bounds => {
   const xs = polygon.map((p) => p.x);
   const ys = polygon.map((p) => p.y);
@@ -73,12 +105,17 @@ const clampView = (v: View, world: Bounds, hiddenW: number) => {
 // Where a view of this size is allowed to sit; null once it outgrows the world,
 // which can then only be shown centred.
 type Range = [number, number] | null;
-const panRange = (lo: number, size: number, extent: number): Range => (extent >= size ? null : [lo + extent / 2, lo + size - extent / 2]);
+const panRange = (lo: number, size: number, extent: number): Range =>
+  extent >= size ? null : [lo + extent / 2, lo + size - extent / 2];
 const panCentre = (centre: number, range: Range, mid: number) => (range ? clamp(centre, range[0], range[1]) : mid);
-const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-interface Sample { x: number; y: number; t: number }
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+interface Sample {
+  x: number;
+  y: number;
+  t: number;
+}
 const flickVelocity = (trail: Sample[], now: number) => {
-  const last = trail[trail.length - 1];
+  const last = trail.at(-1);
   const first = trail[0];
   if (!last || now - last.t > FLICK_STALE) return null;
   const dt = last.t - first.t;
@@ -94,22 +131,39 @@ const segmentPath = (l: LineLayout, a: number, b: number) => {
   return `M ${pts.map(fmt).join(" L ")}`;
 };
 const spanIntervals = (anchor: number, head: number, length: number): Interval[] => {
-  if (head >= anchor) return head <= length ? [[anchor, head]] : [[anchor, length], [0, head - length]];
-  return head >= 0 ? [[head, anchor]] : [[0, anchor], [length + head, length]];
+  if (head >= anchor)
+    return head <= length
+      ? [[anchor, head]]
+      : [
+          [anchor, length],
+          [0, head - length],
+        ];
+  return head >= 0
+    ? [[head, anchor]]
+    : [
+        [0, anchor],
+        [length + head, length],
+      ];
 };
-const nodeBefore = (line: Line, nodes: TrackNode[], index: number): TrackNode | null => nodes[index - 1] ?? (line.closed ? nodes[nodes.length - 1] : null);
-const intervalsPath = (l: LineLayout, intervals: Interval[]) => intervals.map(([a, b]) => segmentPath(l, a, b)).join(" ");
-interface TrackNode { id: string; pos: number }
+const nodeBefore = (line: Line, nodes: TrackNode[], index: number): TrackNode | null =>
+  nodes[index - 1] ?? (line.closed ? (nodes.at(-1) ?? null) : null);
+const intervalsPath = (l: LineLayout, intervals: Interval[]) =>
+  intervals.map(([a, b]) => segmentPath(l, a, b)).join(" ");
+interface TrackNode {
+  id: string;
+  pos: number;
+}
 type TrackPhase = "fill" | "grow";
 const trackNodes = (line: Line, layout: MapLayout): TrackNode[] => {
   const l = layout.lines[line.id];
   const nodes: TrackNode[] = line.stations.map((station) => ({ id: station.id, pos: layout.stations[station.id].pos }));
   if (line.from) nodes.unshift({ id: line.from, pos: 0 });
-  const last = line.path[line.path.length - 1];
+  const last = line.path.at(-1);
   if (typeof last === "object" && !Array.isArray(last)) nodes.push({ id: last.through, pos: l.length });
   return nodes;
 };
-const nodeAfter = (line: Line, nodes: TrackNode[], index: number): TrackNode | null => nodes[index + 1] ?? (line.closed ? nodes[0] : null);
+const nodeAfter = (line: Line, nodes: TrackNode[], index: number): TrackNode | null =>
+  nodes[index + 1] ?? (line.closed ? nodes[0] : null);
 // Every dashed frontier flows in step. Reading the animations is deferred a
 // frame: done inside React's commit it forces a synchronous style recalc of
 // the whole map, once per path, while the tree is at its dirtiest.
@@ -117,20 +171,23 @@ const lockFlowPhase = (el: SVGPathElement | null) => {
   if (!el) return;
   requestAnimationFrame(() => {
     if (!el.isConnected) return;
-    el.getAnimations().forEach((a) => { if ((a as CSSAnimation).animationName === "next-flow") a.startTime = 0; });
+    for (const a of el.getAnimations()) {
+      if ((a as CSSAnimation).animationName === "next-flow") a.startTime = 0;
+    }
   });
 };
 const LITE_INTRO_MS = 600;
 const LITE_FLIGHT_MS = 2200;
 const SVG_NS = "http://www.w3.org/2000/svg";
 export type CameraListener = (view: View) => void;
-const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const reducedMotion = () => globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const lineOf = new Map<string, Line>();
-CURRICULUM.lines.forEach((line) => line.stations.forEach((s) => lineOf.set(s.id, line)));
+for (const line of CURRICULUM.lines) for (const s of line.stations) lineOf.set(s.id, line);
 
 function Shape({ station, className, r }: { station: Station; className: string; r: number }) {
-  if (station.tag === "exercise") return <rect className={className} x={-r} y={-r} width={r * 2} height={r * 2} rx={3} pathLength={100} />;
+  if (station.tag === "exercise")
+    return <rect className={className} x={-r} y={-r} width={r * 2} height={r * 2} rx={3} pathLength={100} />;
   return <circle className={className} r={r} pathLength={100} />;
 }
 
@@ -138,13 +195,27 @@ const WAVE_GROUPS = 0;
 const ZONE_TINTS = ["#e9e0ec", "#dfe8ee", "#e3ecdd", "#f0e7d3"];
 const WAVE_VARIANTS = 6;
 
-const Island = memo(function Island({ surface, introMs }: { surface: Surface; introMs: number }) {
+const Island = memo(function IslandSvg({
+  surface,
+  introMs,
+  clipId,
+}: {
+  surface: Surface;
+  introMs: number;
+  clipId: string;
+}) {
   const pool = useMemo(
-    () => (WAVE_GROUPS > 0 ? coastWaves(coastRings(surface.coastPolygon, MAP_BOUNDS), WAVE_GROUPS, WAVE_VARIANTS, surface.riverPolygon) : []),
+    () =>
+      WAVE_GROUPS > 0
+        ? coastWaves(coastRings(surface.coastPolygon, MAP_BOUNDS), WAVE_GROUPS, WAVE_VARIANTS, surface.riverPolygon)
+        : [],
     [surface],
   );
   const slots = useMemo(
-    () => Array.from({ length: WAVE_GROUPS }, (_, slot) => pool.slice(slot * WAVE_VARIANTS, slot * WAVE_VARIANTS + WAVE_VARIANTS).filter((g) => g.length)),
+    () =>
+      Array.from({ length: WAVE_GROUPS }, (_, slot) =>
+        pool.slice(slot * WAVE_VARIANTS, slot * WAVE_VARIANTS + WAVE_VARIANTS).filter((g) => g.length),
+      ),
     [pool],
   );
   const wavesRef = useRef<SVGGElement>(null);
@@ -159,24 +230,26 @@ const Island = memo(function Island({ surface, introMs }: { surface: Surface; in
       const group = variants[Math.floor(Math.random() * variants.length)];
       if (!group) return;
       const duration = `${(group[0].duration + Math.random() * 1.5).toFixed(2)}s`;
-      root.querySelectorAll<SVGPathElement>(`.wave-mark[data-slot="${slot}"]`).forEach((path) => {
+      for (const path of root.querySelectorAll<SVGPathElement>(`.wave-mark[data-slot="${slot}"]`)) {
         const mark = group[Number(path.dataset.ring)];
-        if (!mark) return;
+        if (!mark) continue;
         path.setAttribute("d", mark.d);
         path.style.setProperty("--tx", `${mark.nx.toFixed(1)}px`);
         path.style.setProperty("--ty", `${mark.ny.toFixed(1)}px`);
         path.style.animationDuration = duration;
-      });
+      }
     };
-    const paths = root.querySelectorAll<SVGPathElement>(".wave-mark[data-ring=\"0\"]");
-    paths.forEach((p) => p.addEventListener("animationiteration", swap));
-    return () => paths.forEach((p) => p.removeEventListener("animationiteration", swap));
+    const paths = root.querySelectorAll<SVGPathElement>('.wave-mark[data-ring="0"]');
+    for (const p of paths) p.addEventListener("animationiteration", swap);
+    return () => {
+      for (const p of paths) p.removeEventListener("animationiteration", swap);
+    };
   }, [slots]);
 
   return (
     <g>
       <defs>
-        <clipPath id="island-clip">
+        <clipPath id={clipId}>
           <path d={surface.island} />
         </clipPath>
       </defs>
@@ -184,12 +257,20 @@ const Island = memo(function Island({ surface, introMs }: { surface: Surface; in
         {slots.flatMap((variants, slot) =>
           (variants[0] ?? []).map((wave, ring) => (
             <path
+              // biome-ignore lint/suspicious/noArrayIndexKey: slot and ring are the identity, also written to data-slot and data-ring
               key={`${slot}-${ring}`}
               className="wave-mark"
               data-slot={slot}
               data-ring={ring}
               d={wave.d}
-              style={{ "--tx": `${wave.nx.toFixed(1)}px`, "--ty": `${wave.ny.toFixed(1)}px`, animationDelay: `${(introMs / 1000 + 7 + wave.delay).toFixed(2)}s`, animationDuration: `${wave.duration.toFixed(2)}s` } as React.CSSProperties}
+              style={
+                {
+                  "--tx": `${wave.nx.toFixed(1)}px`,
+                  "--ty": `${wave.ny.toFixed(1)}px`,
+                  animationDelay: `${(introMs / 1000 + 7 + wave.delay).toFixed(2)}s`,
+                  animationDuration: `${wave.duration.toFixed(2)}s`,
+                } as React.CSSProperties
+              }
             />
           )),
         )}
@@ -206,20 +287,39 @@ const Island = memo(function Island({ surface, introMs }: { surface: Surface; in
 const WATERMARK_MAX = 150;
 const WATERMARK_CHAR = 0.62;
 
-const Zones = memo(function Zones() {
+const Zones = memo(function ZonesSvg({ clipId }: { clipId: string }) {
   return (
-    <g className="zones-layer" clipPath="url(#island-clip)">
+    <g className="zones-layer" clipPath={`url(#${clipId})`}>
       {ZONES.map((zone, index) => {
         const inner = ZONES[index + 1];
         const label = zone.label.replace(" · ", "  ·  ").toUpperCase();
         const bandHeight = inner ? inner.y - zone.y : zone.h;
-        const fontSize = Math.min(WATERMARK_MAX, bandHeight * 0.62, ((zone.w - 120) / label.length) / WATERMARK_CHAR);
-        const cx = zone.x + zone.w / 2;
-        const cy = inner ? (zone.y + inner.y) / 2 : zone.y + zone.h / 2;
+        const fontSize = Math.min(WATERMARK_MAX, bandHeight * 0.62, (zone.w - 120) / label.length / WATERMARK_CHAR);
+        const labelX = zone.x + zone.w / 2;
+        const labelY = inner ? (zone.y + inner.y) / 2 : zone.y + zone.h / 2;
         return (
           <g key={zone.label}>
-            {index > 0 && <rect className="zone" x={zone.x} y={zone.y} width={zone.w} height={zone.h} rx={48} style={{ fill: ZONE_TINTS[index % ZONE_TINTS.length] }} />}
-            <text className="zone-watermark" x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={fontSize.toFixed(0)}>{label}</text>
+            {index > 0 && (
+              <rect
+                className="zone"
+                x={zone.x}
+                y={zone.y}
+                width={zone.w}
+                height={zone.h}
+                rx={48}
+                style={{ fill: ZONE_TINTS[index % ZONE_TINTS.length] }}
+              />
+            )}
+            <text
+              className="zone-watermark"
+              x={labelX}
+              y={labelY}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={fontSize.toFixed(0)}
+            >
+              {label}
+            </text>
           </g>
         );
       })}
@@ -227,23 +327,35 @@ const Zones = memo(function Zones() {
   );
 });
 
-const River = memo(function River({ layout, surface, colours }: { layout: MapLayout; surface: Surface; colours: Record<string, string> }) {
+const River = memo(function RiverSvg({
+  layout,
+  surface,
+  colours,
+}: {
+  layout: MapLayout;
+  surface: Surface;
+  colours: Record<string, string>;
+}) {
   const { portals, tunnels } = useMemo(() => riverCrossings(layout, surface.riverPolygon), [layout, surface]);
   return (
     <g className="river-layer">
       <path className="river" d={surface.river} />
       <path className="shore" d={surface.island} />
-      {tunnels.map((tunnel, i) => (
-        <g key={i}>
+      {tunnels.map((tunnel) => (
+        <g key={`${tunnel.lineId}-${tunnel.d}`}>
           <path className="tunnel-casing" d={tunnel.d} />
           <path className="tunnel" d={tunnel.d} stroke={colours[tunnel.lineId]} />
         </g>
       ))}
-      {portals.map((c, i) => {
+      {portals.map((c) => {
         const angle = (Math.atan2(c.tangent.y, c.tangent.x) * 180) / Math.PI;
         const mouthX = c.into ? 1 : -7;
         return (
-          <g key={i} className="portal" transform={`translate(${c.pt.x.toFixed(1)} ${c.pt.y.toFixed(1)}) rotate(${angle.toFixed(1)})`}>
+          <g
+            key={`${c.lineId}-${c.pt.x.toFixed(1)}-${c.pt.y.toFixed(1)}`}
+            className="portal"
+            transform={`translate(${c.pt.x.toFixed(1)} ${c.pt.y.toFixed(1)}) rotate(${angle.toFixed(1)})`}
+          >
             <rect className="portal-frame" x={-7} y={-12} width={14} height={24} rx={2} />
             <rect className="portal-mouth" x={mouthX} y={-7} width={6} height={14} rx={1.5} />
             <rect className="portal-keystone" x={-1} y={-12} width={2} height={24} />
@@ -262,7 +374,7 @@ interface LinkLayerProps {
   focusLineId: string | null;
 }
 
-const LinkLayer = memo(function LinkLayer({ layout, colours, litKey, selectedId, focusLineId }: LinkLayerProps) {
+const LinkLayer = memo(function LinkLayerSvg({ layout, colours, litKey, selectedId, focusLineId }: LinkLayerProps) {
   return (
     <g>
       <defs>
@@ -270,7 +382,15 @@ const LinkLayer = memo(function LinkLayer({ layout, colours, litKey, selectedId,
           const A = layout.stations[a];
           const B = layout.stations[b];
           return (
-            <linearGradient key={i} id={`grad-link-${i}`} gradientUnits="userSpaceOnUse" x1={A.pt.x} y1={A.pt.y} x2={B.pt.x} y2={B.pt.y}>
+            <linearGradient
+              key={`${a}-${b}`}
+              id={`grad-link-${i}`}
+              gradientUnits="userSpaceOnUse"
+              x1={A.pt.x}
+              y1={A.pt.y}
+              x2={B.pt.x}
+              y2={B.pt.y}
+            >
               <stop offset="0" stopColor={colours[A.lineId]} />
               <stop offset="1" stopColor={colours[B.lineId]} />
             </linearGradient>
@@ -292,7 +412,7 @@ const LinkLayer = memo(function LinkLayer({ layout, colours, litKey, selectedId,
         const focus = Boolean(focusLineId) && (A.lineId === focusLineId || B.lineId === focusLineId);
         return (
           <path
-            key={i}
+            key={`${a}-${b}`}
             className={cx("link", lit && "lit", active && "active", focus && "focus")}
             d={`M ${fmt(A.pt)} Q ${fmt(control)} ${fmt(B.pt)}`}
             style={lit ? { stroke: `url(#grad-link-${i})` } : undefined}
@@ -318,18 +438,39 @@ interface TrackProps {
 
 const TERMINUS_HALF = 13;
 
-const Track = memo(function Track({ line, layout, schedule, colour, dash, frontier, readEnds, masked, dim }: TrackProps) {
+const Track = memo(function TrackSvg({
+  line,
+  layout,
+  schedule,
+  colour,
+  dash,
+  frontier,
+  readEnds,
+  masked,
+  dim,
+}: TrackProps) {
   const l = layout.lines[line.id];
   const bounds = useMemo(() => {
-    const box = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+    const box = {
+      minX: Number.POSITIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY,
+    };
     for (let pos = 0; pos <= l.length; pos += 30) {
       const p = l.pointAt(pos);
-      box.minX = Math.min(box.minX, p.x); box.maxX = Math.max(box.maxX, p.x);
-      box.minY = Math.min(box.minY, p.y); box.maxY = Math.max(box.maxY, p.y);
+      box.minX = Math.min(box.minX, p.x);
+      box.maxX = Math.max(box.maxX, p.x);
+      box.minY = Math.min(box.minY, p.y);
+      box.maxY = Math.max(box.maxY, p.y);
     }
     return { minX: box.minX - 60, minY: box.minY - 60, maxX: box.maxX + 60, maxY: box.maxY + 60 };
   }, [l]);
-  const drawTiming = { "--len": l.length.toFixed(1), "--delay": `${schedule.lineStart[line.id].toFixed(0)}ms`, "--draw": `${schedule.lineDuration[line.id].toFixed(0)}ms` } as React.CSSProperties;
+  const drawTiming = {
+    "--len": l.length.toFixed(1),
+    "--delay": `${schedule.lineStart[line.id].toFixed(0)}ms`,
+    "--draw": `${schedule.lineDuration[line.id].toFixed(0)}ms`,
+  } as React.CSSProperties;
   const drawMask = masked ? `url(#draw-${line.id})` : undefined;
   return (
     <>
@@ -337,9 +478,11 @@ const Track = memo(function Track({ line, layout, schedule, colour, dash, fronti
         const nx = -end.tangent.y * TERMINUS_HALF;
         const ny = end.tangent.x * TERMINUS_HALF;
         const { x: bx, y: by } = terminusPoint(end);
-        const style = { "--delay": `${(schedule.stationDelay[end.stationId] + 200).toFixed(0)}ms` } as React.CSSProperties;
+        const style = {
+          "--delay": `${(schedule.stationDelay[end.stationId] + 200).toFixed(0)}ms`,
+        } as React.CSSProperties;
         return (
-          <g key={i}>
+          <g key={end.outward}>
             <line
               className="terminus-stub dimmable"
               data-dim={dim}
@@ -363,16 +506,39 @@ const Track = memo(function Track({ line, layout, schedule, colour, dash, fronti
           </g>
         );
       })}
-      {masked && (
+      {masked ? (
         <defs>
-          <mask id={`draw-${line.id}`} maskUnits="userSpaceOnUse" x={bounds.minX} y={bounds.minY} width={bounds.maxX - bounds.minX} height={bounds.maxY - bounds.minY}>
+          <mask
+            id={`draw-${line.id}`}
+            maskUnits="userSpaceOnUse"
+            x={bounds.minX}
+            y={bounds.minY}
+            width={bounds.maxX - bounds.minX}
+            height={bounds.maxY - bounds.minY}
+          >
             <path className="draw-mask" d={l.d} style={drawTiming} />
           </mask>
         </defs>
-      )}
+      ) : null}
       <path className="track-base dimmable" data-dim={dim} d={l.d} style={drawTiming} />
-      <path className="track-colour dimmable" data-dim={dim} d={l.d} stroke={colour} strokeDasharray={dash} mask={drawMask} />
-      {frontier && <path ref={lockFlowPhase} className="track-next dimmable" data-dim={dim} d={frontier} stroke={colour} mask={drawMask} />}
+      <path
+        className="track-colour dimmable"
+        data-dim={dim}
+        d={l.d}
+        stroke={colour}
+        strokeDasharray={dash}
+        mask={drawMask}
+      />
+      {frontier ? (
+        <path
+          ref={lockFlowPhase}
+          className="track-next dimmable"
+          data-dim={dim}
+          d={frontier}
+          stroke={colour}
+          mask={drawMask}
+        />
+      ) : null}
     </>
   );
 });
@@ -391,23 +557,49 @@ interface LineStationsProps {
 }
 const dimStation = (focusIds: Set<string> | null, id: string) => (focusIds ? String(!focusIds.has(id)) : undefined);
 
-const LineStations = memo(function LineStations({ line, layout, schedule, colour, statusKey, nextId, hereId, selectedId, focusIds, register }: LineStationsProps) {
+const LineStations = memo(function LineStationsSvg({
+  line,
+  layout,
+  schedule,
+  colour,
+  statusKey,
+  nextId,
+  hereId,
+  selectedId,
+  focusIds,
+  register,
+}: LineStationsProps) {
   return (
     <g>
       {line.stations.map((station, index) => {
         const s = layout.stations[station.id];
         const status = statusKey[index] as "u" | "g" | "r" | "c";
-        const statusClass = status === "c" ? "read complete" : status === "r" ? "read" : status === "g" ? "reading" : "unread";
+        const statusClass =
+          status === "c" ? "read complete" : status === "r" ? "read" : status === "g" ? "reading" : "unread";
         const r = s.interchange ? INTERCHANGE_RADIUS : STATION_RADIUS[station.tag];
         return (
           <g
             key={station.id}
             ref={(el) => register(station.id, el)}
-            className={cx("station dimmable", station.tag, statusClass, nextId === station.id && "next", hereId === station.id && "here", selectedId === station.id && "selected", s.interchange && "interchange")}
+            className={cx(
+              "station dimmable",
+              station.tag,
+              statusClass,
+              nextId === station.id && "next",
+              hereId === station.id && "here",
+              selectedId === station.id && "selected",
+              s.interchange && "interchange",
+            )}
             data-id={station.id}
             data-dim={dimStation(focusIds, station.id)}
             transform={`translate(${s.pt.x.toFixed(1)} ${s.pt.y.toFixed(1)})`}
-            style={{ "--c": colour, "--r": `${r}px`, "--delay": `${schedule.stationDelay[station.id].toFixed(0)}ms` } as React.CSSProperties}
+            style={
+              {
+                "--c": colour,
+                "--r": `${r}px`,
+                "--delay": `${schedule.stationDelay[station.id].toFixed(0)}ms`,
+              } as React.CSSProperties
+            }
           >
             <Shape station={station} className="halo" r={r} />
             <Shape station={station} className="core" r={r} />
@@ -420,7 +612,16 @@ const LineStations = memo(function LineStations({ line, layout, schedule, colour
   );
 });
 
-const LineLabels = memo(function LineLabels({ line, layout, schedule, colour, statusKey, nextId, selectedId, focusIds }: Omit<LineStationsProps, "register">) {
+const LineLabels = memo(function LineLabelsSvg({
+  line,
+  layout,
+  schedule,
+  colour,
+  statusKey,
+  nextId,
+  selectedId,
+  focusIds,
+}: Omit<LineStationsProps, "register">) {
   return (
     <g>
       {line.stations.map((station, index) => {
@@ -430,14 +631,25 @@ const LineLabels = memo(function LineLabels({ line, layout, schedule, colour, st
         return (
           <text
             key={station.id}
-            className={cx("label dimmable", station.tag, statusClass, nextId === station.id && "next", selectedId === station.id && "selected")}
+            className={cx(
+              "label dimmable",
+              station.tag,
+              statusClass,
+              nextId === station.id && "next",
+              selectedId === station.id && "selected",
+            )}
             data-id={station.id}
             data-dim={dimStation(focusIds, station.id)}
             x={s.label.x.toFixed(1)}
             y={s.label.y.toFixed(1)}
             textAnchor={s.label.anchor}
             dominantBaseline={s.label.baseline}
-            style={{ "--c": colour, "--delay": `${(schedule.stationDelay[station.id] + 350).toFixed(0)}ms` } as React.CSSProperties}
+            style={
+              {
+                "--c": colour,
+                "--delay": `${(schedule.stationDelay[station.id] + 350).toFixed(0)}ms`,
+              } as React.CSSProperties
+            }
           >
             {station.name}
           </text>
@@ -447,7 +659,19 @@ const LineLabels = memo(function LineLabels({ line, layout, schedule, colour, st
   );
 });
 
-const Pill = memo(function Pill({ line, at, colour, delay, dim }: { line: Line; at: PillPoint; colour: string; delay: number; dim?: string }) {
+const Pill = memo(function PillSvg({
+  line,
+  at,
+  colour,
+  delay,
+  dim,
+}: {
+  line: Line;
+  at: PillPoint;
+  colour: string;
+  delay: number;
+  dim?: string;
+}) {
   const textRef = useRef<SVGTextElement>(null);
   const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   useEffect(() => {
@@ -459,8 +683,13 @@ const Pill = memo(function Pill({ line, at, colour, delay, dim }: { line: Line; 
     document.fonts.ready.then(measure);
   }, []);
   return (
-    <g className={cx("pill dimmable", isLightLine(line.tfl) && "light")} data-line={line.id} data-dim={dim} style={{ "--c": colour, "--delay": `${delay.toFixed(0)}ms` } as React.CSSProperties}>
-      {box && <rect x={box.x} y={box.y} width={box.w} height={box.h} rx={11} />}
+    <g
+      className={cx("pill dimmable", isLightLine(line.tfl) && "light")}
+      data-line={line.id}
+      data-dim={dim}
+      style={{ "--c": colour, "--delay": `${delay.toFixed(0)}ms` } as React.CSSProperties}
+    >
+      {box ? <rect x={box.x} y={box.y} width={box.w} height={box.h} rx={11} /> : null}
       <text ref={textRef} x={at.x} y={at.y} textAnchor={at.anchor} dominantBaseline="middle">
         {`${line.phase} · ${line.short}`.toUpperCase()}
       </text>
@@ -470,7 +699,8 @@ const Pill = memo(function Pill({ line, at, colour, delay, dim }: { line: Line; 
 
 const LAMP_GAP = 34;
 const BOOTH_GAP = 30;
-const hasBooth = (station: Station, index: number) => !station.landmark && (station.tag === "exercise" || index % 7 === 4);
+const hasBooth = (station: Station, index: number) =>
+  !station.landmark && (station.tag === "exercise" || index % 7 === 4);
 const RAYS = [150, 180, 210, -30, 0, 30]
   .map((deg) => {
     const a = (deg * Math.PI) / 180;
@@ -479,7 +709,13 @@ const RAYS = [150, 180, 210, -30, 0, 30]
   })
   .join(" ");
 
-const LineBooths = memo(function LineBooths({ line, layout, schedule, statusKey, focusIds }: Omit<LineStationsProps, "register" | "colour" | "nextId" | "selectedId">) {
+const LineBooths = memo(function LineBoothsSvg({
+  line,
+  layout,
+  schedule,
+  statusKey,
+  focusIds,
+}: Omit<LineStationsProps, "register" | "colour" | "nextId" | "selectedId">) {
   return (
     <g>
       {line.stations.map((station, index) => {
@@ -506,7 +742,10 @@ const LineBooths = memo(function LineBooths({ line, layout, schedule, statusKey,
             <rect className="booth-band" x={-5.2} y={-21.6} width={10.4} height={2.6} rx={0.5} />
             <rect className="booth-sign" x={-4} y={-20.9} width={8} height={1.2} rx={0.4} />
             <rect className="booth-glass" x={-4.2} y={-18} width={8.4} height={12.5} rx={0.4} />
-            <path className="booth-bars" d="M -1.4 -18 V -5.5 M 1.4 -18 V -5.5 M -4.2 -15 H 4.2 M -4.2 -12 H 4.2 M -4.2 -9 H 4.2" />
+            <path
+              className="booth-bars"
+              d="M -1.4 -18 V -5.5 M 1.4 -18 V -5.5 M -4.2 -15 H 4.2 M -4.2 -12 H 4.2 M -4.2 -9 H 4.2"
+            />
             <rect className="booth-band" x={-4.6} y={-5} width={9.2} height={4.4} rx={0.4} />
           </g>
         );
@@ -515,7 +754,13 @@ const LineBooths = memo(function LineBooths({ line, layout, schedule, statusKey,
   );
 });
 
-const LineLamps = memo(function LineLamps({ line, layout, schedule, statusKey, focusIds }: Omit<LineStationsProps, "register" | "colour" | "nextId" | "selectedId">) {
+const LineLamps = memo(function LineLampsSvg({
+  line,
+  layout,
+  schedule,
+  statusKey,
+  focusIds,
+}: Omit<LineStationsProps, "register" | "colour" | "nextId" | "selectedId">) {
   return (
     <g>
       {line.stations.map((station, index) => {
@@ -553,12 +798,29 @@ const LineLamps = memo(function LineLamps({ line, layout, schedule, statusKey, f
   );
 });
 
-const statusChar = (status: Status, complete: boolean) => (status === "read" ? (complete ? "c" : "r") : status === "reading" ? "g" : "u");
+const statusChar = (status: Status, complete: boolean) =>
+  status === "read" ? (complete ? "c" : "r") : status === "reading" ? "g" : "u";
 
-export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
-  { layout, schedule, hereId, nextIds, completeIds, progress, colours, selectedId, focusLineId, trainCount, intro, lite, panelRef, panelOpen, onSelect, onPinLine },
+export function TubeMap({
   ref,
-) {
+  layout,
+  schedule,
+  hereId,
+  nextIds,
+  completeIds,
+  progress,
+  colours,
+  selectedId,
+  focusLineId,
+  trainCount,
+  intro,
+  lite,
+  panelRef,
+  panelOpen,
+  onSelect,
+  onPinLine,
+}: TubeMapProps) {
+  const islandClipId = useId();
   const svgRef = useRef<SVGSVGElement>(null);
   const animLayerRef = useRef<SVGGElement>(null);
   const stationRefs = useRef(new Map<string, SVGGElement>());
@@ -567,14 +829,24 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   const paintFrame = useRef<number | null>(null);
   const flightRef = useRef<number | null>(null);
   const listeners = useRef(new Set<CameraListener>());
-  const dragRef = useRef<{ x: number; y: number; ox: number; oy: number; moved: boolean; target: Element | null; trail: Sample[] } | null>(null);
+  const dragRef = useRef<{
+    x: number;
+    y: number;
+    ox: number;
+    oy: number;
+    moved: boolean;
+    target: Element | null;
+    trail: Sample[];
+  } | null>(null);
   const glideRef = useRef<number | null>(null);
   const pointersRef = useRef(new Map<number, Pt>());
   const pinchRef = useRef<{ dist: number; mid: Pt } | null>(null);
   const rectRef = useRef<DOMRect | null>(null);
   const hiddenRef = useRef(0);
   const panelOpenRef = useRef(panelOpen);
-  useEffect(() => { panelOpenRef.current = panelOpen; }, [panelOpen]);
+  useEffect(() => {
+    panelOpenRef.current = panelOpen;
+  }, [panelOpen]);
   const shieldRef = useRef<HTMLDivElement>(null);
   const setDragging = useCallback((on: boolean) => {
     shieldRef.current?.classList.toggle("hidden", !on);
@@ -582,7 +854,7 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     // browser's selection into the panel beside it: freeze selection for the
     // pan, and drop whatever the press was about to drag out of.
     document.body.classList.toggle("map-dragging", on);
-    if (on) window.getSelection()?.removeAllRanges();
+    if (on) globalThis.getSelection()?.removeAllRanges();
   }, []);
   useEffect(() => () => document.body.classList.remove("map-dragging"), []);
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -591,7 +863,9 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   const surface = useMemo(() => surfaceGeometry(layout, CURRICULUM, MAP_BOUNDS, RIVER), [layout]);
   const world = useMemo(() => worldOf(surface.islandPolygon), [surface]);
   const worldRef = useRef(world);
-  useEffect(() => { worldRef.current = world; }, [world]);
+  useEffect(() => {
+    worldRef.current = world;
+  }, [world]);
   const clampWidth = useCallback((w: number) => clamp(w, MIN_VIEW_W, worldRef.current.w * MAX_VIEW_SCALE), []);
 
   const measureWrap = useCallback(() => {
@@ -600,13 +874,18 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   }, []);
   const wrapRect = useCallback(() => rectRef.current ?? measureWrap(), [measureWrap]);
   /** The fraction of the map's width under the open panel. */
-  const measureHidden = useCallback((open: boolean) => {
-    const panelW = open ? panelRef.current?.getBoundingClientRect().width ?? 0 : 0;
-    const fraction = panelW / wrapRect().width;
-    hiddenRef.current = fraction < MAX_HIDDEN ? fraction : 0;
-    return hiddenRef.current;
-  }, [panelRef, wrapRect]);
-  useEffect(() => { measureHidden(panelOpen); }, [panelOpen, measureHidden]);
+  const measureHidden = useCallback(
+    (open: boolean) => {
+      const panelW = open ? (panelRef.current?.getBoundingClientRect().width ?? 0) : 0;
+      const fraction = panelW / wrapRect().width;
+      hiddenRef.current = fraction < MAX_HIDDEN ? fraction : 0;
+      return hiddenRef.current;
+    },
+    [panelRef, wrapRect],
+  );
+  useEffect(() => {
+    measureHidden(panelOpen);
+  }, [panelOpen, measureHidden]);
   const aspect = useCallback(() => {
     const rect = wrapRect();
     return rect.width < 10 || rect.height < 10 ? 1.2 : rect.width / rect.height;
@@ -623,29 +902,35 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     const v = { ...pending.current };
     const viewBox = `${v.x} ${v.y} ${v.w} ${v.h}`;
     if (svg.getAttribute("viewBox") !== viewBox) svg.setAttribute("viewBox", viewBox);
-    listeners.current.forEach((fn) => fn(v));
+    for (const fn of listeners.current) fn(v);
   }, []);
 
   const settle = useCallback(() => {
-    if (settleTimer.current !== null) { clearTimeout(settleTimer.current); settleTimer.current = null; }
+    if (settleTimer.current !== null) {
+      clearTimeout(settleTimer.current);
+      settleTimer.current = null;
+    }
     if (paintFrame.current !== null) cancelAnimationFrame(paintFrame.current);
     paint();
     svgRef.current?.classList.remove("moving");
   }, [paint]);
 
-  const render = useCallback((settleSoon: boolean) => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    if (!flightRef.current) clampView(pending.current, worldRef.current, pending.current.w * hiddenRef.current);
-    svg.classList.add("moving");
-    // Wheel/pointer events can arrive faster than the display refresh rate.
-    // Publish the view to the SVG, trains and minimap together when it paints.
-    if (paintFrame.current === null) paintFrame.current = requestAnimationFrame(paint);
-    if (settleSoon) {
-      if (settleTimer.current !== null) clearTimeout(settleTimer.current);
-      settleTimer.current = setTimeout(settle, SETTLE_DELAY);
-    }
-  }, [paint, settle]);
+  const render = useCallback(
+    (settleSoon: boolean) => {
+      const svg = svgRef.current;
+      if (!svg) return;
+      if (!flightRef.current) clampView(pending.current, worldRef.current, pending.current.w * hiddenRef.current);
+      svg.classList.add("moving");
+      // Wheel/pointer events can arrive faster than the display refresh rate.
+      // Publish the view to the SVG, trains and minimap together when it paints.
+      if (paintFrame.current === null) paintFrame.current = requestAnimationFrame(paint);
+      if (settleSoon) {
+        if (settleTimer.current !== null) clearTimeout(settleTimer.current);
+        settleTimer.current = setTimeout(settle, SETTLE_DELAY);
+      }
+    },
+    [paint, settle],
+  );
 
   const stopGlide = useCallback(() => {
     if (!glideRef.current) return false;
@@ -654,85 +939,117 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     return true;
   }, []);
 
-  const glide = useCallback((vx: number, vy: number) => {
-    let last = performance.now();
-    const step = (now: number) => {
-      const dt = Math.min(64, now - last);
-      last = now;
-      const decay = Math.pow(GLIDE_FRICTION, dt / 16.6667);
-      vx *= decay;
-      vy *= decay;
-      const v = pending.current;
-      const unitsPerPixel = v.w / wrapRect().width;
-      const stepX = vx * dt * unitsPerPixel;
-      const stepY = vy * dt * unitsPerPixel;
-      const fromX = v.x;
-      const fromY = v.y;
-      v.x -= stepX;
-      v.y -= stepY;
-      render(false);
-      if (Math.abs(v.x - fromX) < Math.abs(stepX) / 2) vx = 0;
-      if (Math.abs(v.y - fromY) < Math.abs(stepY) / 2) vy = 0;
-      if (Math.hypot(vx, vy) < GLIDE_MIN_SPEED) { glideRef.current = null; settle(); return; }
+  const glide = useCallback(
+    (vx: number, vy: number) => {
+      let speedX = vx;
+      let speedY = vy;
+      let last = performance.now();
+      const step = (now: number) => {
+        const dt = Math.min(64, now - last);
+        last = now;
+        const decay = GLIDE_FRICTION ** (dt / 16.6667);
+        speedX *= decay;
+        speedY *= decay;
+        const v = pending.current;
+        const unitsPerPixel = v.w / wrapRect().width;
+        const stepX = speedX * dt * unitsPerPixel;
+        const stepY = speedY * dt * unitsPerPixel;
+        const fromX = v.x;
+        const fromY = v.y;
+        v.x -= stepX;
+        v.y -= stepY;
+        render(false);
+        if (Math.abs(v.x - fromX) < Math.abs(stepX) / 2) speedX = 0;
+        if (Math.abs(v.y - fromY) < Math.abs(stepY) / 2) speedY = 0;
+        if (Math.hypot(speedX, speedY) < GLIDE_MIN_SPEED) {
+          glideRef.current = null;
+          settle();
+          return;
+        }
+        glideRef.current = requestAnimationFrame(step);
+      };
       glideRef.current = requestAnimationFrame(step);
-    };
-    glideRef.current = requestAnimationFrame(step);
-  }, [render, settle, wrapRect]);
+    },
+    [render, settle, wrapRect],
+  );
 
-  const setViewCentered = useCallback((cx: number, cy: number, w: number, commitSoon = true) => {
-    const v = pending.current;
-    v.w = clampWidth(w);
-    v.h = v.w / aspect();
-    v.x = cx - v.w / 2;
-    v.y = cy - v.h / 2;
-    render(commitSoon);
-  }, [render, aspect, clampWidth]);
+  const setViewCentered = useCallback(
+    (centreX: number, centreY: number, w: number, commitSoon = true) => {
+      const v = pending.current;
+      v.w = clampWidth(w);
+      v.h = v.w / aspect();
+      v.x = centreX - v.w / 2;
+      v.y = centreY - v.h / 2;
+      render(commitSoon);
+    },
+    [render, aspect, clampWidth],
+  );
 
   /** Fly so that the point is centred, and the width shown, in the part of the map the panel leaves visible. */
-  const flyTo = useCallback((cx: number, cy: number, seenW: number, duration = 850) => {
-    stopGlide();
-    if (settleTimer.current !== null) { clearTimeout(settleTimer.current); settleTimer.current = null; }
-    if (flightRef.current) cancelAnimationFrame(flightRef.current);
-    const v = pending.current;
-    const from = { cx: v.x + v.w / 2, cy: v.y + v.h / 2, w: v.w };
-    // Clamp where the flight lands, once, so the path between two in-bounds
-    // views can be a straight line. Clamping every frame instead pins the
-    // camera for as long as the view is wider than the world and then lurches
-    // it through the rest of the pan, which is the dog-leg the intro showed.
-    const b = worldRef.current;
-    const targetW = clampWidth(seenW / (1 - hiddenRef.current));
-    const hiddenW = targetW * hiddenRef.current;
-    const target = {
-      cx: panCentre(cx, panRange(b.x, b.w, targetW - hiddenW), b.x + b.w / 2) + hiddenW / 2,
-      cy: panCentre(cy, panRange(b.y, b.h, targetW / aspect()), b.y + b.h / 2),
-      w: targetW,
-    };
-    const start = performance.now();
-    const flightMs = reducedMotion() ? 1 : duration;
-    const step = (now: number) => {
-      const k = easeInOut(Math.min(1, (now - start) / flightMs));
-      setViewCentered(from.cx + (target.cx - from.cx) * k, from.cy + (target.cy - from.cy) * k, from.w + (target.w - from.w) * k, false);
-      if (k < 1) { flightRef.current = requestAnimationFrame(step); return; }
-      // Clearing the flight first makes this last render clamp, which matters
-      // only if the viewport changed shape mid-flight.
-      flightRef.current = null;
-      render(false);
-      settle();
-    };
-    flightRef.current = requestAnimationFrame(step);
-  }, [setViewCentered, settle, clampWidth, stopGlide, aspect, render]);
+  const flyTo = useCallback(
+    (centreX: number, centreY: number, seenW: number, duration = 850) => {
+      stopGlide();
+      if (settleTimer.current !== null) {
+        clearTimeout(settleTimer.current);
+        settleTimer.current = null;
+      }
+      if (flightRef.current) cancelAnimationFrame(flightRef.current);
+      const v = pending.current;
+      const from = { cx: v.x + v.w / 2, cy: v.y + v.h / 2, w: v.w };
+      // Clamp where the flight lands, once, so the path between two in-bounds
+      // views can be a straight line. Clamping every frame instead pins the
+      // camera for as long as the view is wider than the world and then lurches
+      // it through the rest of the pan, which is the dog-leg the intro showed.
+      const b = worldRef.current;
+      const targetW = clampWidth(seenW / (1 - hiddenRef.current));
+      const hiddenW = targetW * hiddenRef.current;
+      const target = {
+        cx: panCentre(centreX, panRange(b.x, b.w, targetW - hiddenW), b.x + b.w / 2) + hiddenW / 2,
+        cy: panCentre(centreY, panRange(b.y, b.h, targetW / aspect()), b.y + b.h / 2),
+        w: targetW,
+      };
+      const start = performance.now();
+      const flightMs = reducedMotion() ? 1 : duration;
+      const step = (now: number) => {
+        const k = easeInOut(Math.min(1, (now - start) / flightMs));
+        setViewCentered(
+          from.cx + (target.cx - from.cx) * k,
+          from.cy + (target.cy - from.cy) * k,
+          from.w + (target.w - from.w) * k,
+          false,
+        );
+        if (k < 1) {
+          flightRef.current = requestAnimationFrame(step);
+          return;
+        }
+        // Clearing the flight first makes this last render clamp, which matters
+        // only if the viewport changed shape mid-flight.
+        flightRef.current = null;
+        render(false);
+        settle();
+      };
+      flightRef.current = requestAnimationFrame(step);
+    },
+    [setViewCentered, settle, clampWidth, stopGlide, aspect, render],
+  );
 
-  const fitAll = useCallback((duration?: number) => {
-    const b = worldRef.current;
-    flyTo(b.x + b.w / 2, b.y + b.h / 2, Math.max(b.w, b.h * aspect()), duration);
-  }, [flyTo, aspect]);
+  const fitAll = useCallback(
+    (duration?: number) => {
+      const b = worldRef.current;
+      flyTo(b.x + b.w / 2, b.y + b.h / 2, Math.max(b.w, b.h * aspect()), duration);
+    },
+    [flyTo, aspect],
+  );
 
-  const toMap = useCallback((clientX: number, clientY: number): Pt => {
-    const rect = wrapRect();
-    const p = pending.current;
-    const unitsPerPixel = p.w / rect.width;
-    return { x: p.x + (clientX - rect.left) * unitsPerPixel, y: p.y + (clientY - rect.top) * unitsPerPixel };
-  }, [wrapRect]);
+  const toMap = useCallback(
+    (clientX: number, clientY: number): Pt => {
+      const rect = wrapRect();
+      const p = pending.current;
+      const unitsPerPixel = p.w / rect.width;
+      return { x: p.x + (clientX - rect.left) * unitsPerPixel, y: p.y + (clientY - rect.top) * unitsPerPixel };
+    },
+    [wrapRect],
+  );
 
   const toScreen = (pt: Pt): Pt => {
     const rect = wrapRect();
@@ -741,38 +1058,45 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     return { x: (pt.x - p.x) * pixelsPerUnit, y: (pt.y - p.y) * pixelsPerUnit };
   };
 
-  const zoomAt = useCallback((factor: number, clientX: number, clientY: number, commitSoon = true) => {
-    const focus = toMap(clientX, clientY);
-    const v = pending.current;
-    const w = clampWidth(v.w * factor);
-    const k = w / v.w;
-    v.x = focus.x - (focus.x - v.x) * k;
-    v.y = focus.y - (focus.y - v.y) * k;
-    v.w = w;
-    v.h = w / aspect();
-    render(commitSoon);
-  }, [render, aspect, toMap, clampWidth]);
+  const zoomAt = useCallback(
+    (factor: number, clientX: number, clientY: number, commitSoon = true) => {
+      const focus = toMap(clientX, clientY);
+      const v = pending.current;
+      const w = clampWidth(v.w * factor);
+      const k = w / v.w;
+      v.x = focus.x - (focus.x - v.x) * k;
+      v.y = focus.y - (focus.y - v.y) * k;
+      v.w = w;
+      v.h = w / aspect();
+      render(commitSoon);
+    },
+    [render, aspect, toMap, clampWidth],
+  );
 
   const seenWidth = useCallback(() => pending.current.w * (1 - hiddenRef.current), []);
 
-  useImperativeHandle(ref, () => ({
-    flyToStation: (id) => {
-      const s = layout.stations[id];
-      if (s) flyTo(s.pt.x, s.pt.y, Math.min(seenWidth(), 1500), 700);
-    },
-    flyToLine: (id) => {
-      const line = CURRICULUM.lines.find((l) => l.id === id);
-      if (!line) return;
-      const b = lineBounds(line, layout);
-      const w = Math.max(b.maxX - b.minX, (b.maxY - b.minY) * aspect() * (1 - hiddenRef.current), 900);
-      flyTo((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, w);
-    },
-    fitAll: () => fitAll(),
-    zoomBy: (factor) => {
-      const rect = wrapRect();
-      zoomAt(factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
-    },
-  }), [layout, flyTo, fitAll, zoomAt, aspect, wrapRect, seenWidth]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      flyToStation: (id) => {
+        const s = layout.stations[id];
+        if (s) flyTo(s.pt.x, s.pt.y, Math.min(seenWidth(), 1500), 700);
+      },
+      flyToLine: (id) => {
+        const line = CURRICULUM.lines.find((l) => l.id === id);
+        if (!line) return;
+        const b = lineBounds(line, layout);
+        const w = Math.max(b.maxX - b.minX, (b.maxY - b.minY) * aspect() * (1 - hiddenRef.current), 900);
+        flyTo((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, w);
+      },
+      fitAll: () => fitAll(),
+      zoomBy: (factor) => {
+        const rect = wrapRect();
+        zoomAt(factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
+      },
+    }),
+    [layout, flyTo, fitAll, zoomAt, aspect, wrapRect, seenWidth],
+  );
 
   // A station picked on the map can be under the panel that opens for it:
   // bring it into the part of the map the panel leaves visible.
@@ -789,8 +1113,8 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   }, [selectedId, panelOpen, layout, measureHidden, wrapRect, flyTo, seenWidth]);
 
   useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
+    const wrap = svgRef.current?.parentElement;
+    if (!wrap) return;
     const keepAspect = () => {
       measureWrap();
       measureHidden(panelOpenRef.current);
@@ -800,20 +1124,34 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
       settle();
     };
     const observer = new ResizeObserver(keepAspect);
-    observer.observe(svg.parentElement!);
+    observer.observe(wrap);
     window.addEventListener("scroll", measureWrap, { passive: true });
     window.visualViewport?.addEventListener("resize", measureWrap);
     measureWrap();
     const b = worldRef.current;
     setViewCentered(b.x + b.w / 2, b.y + b.h / 2, Math.max(b.w, b.h * aspect()) * 1.08, false);
     settle();
-    flyTo(START_VIEW.cx, START_VIEW.cy, Math.max(START_VIEW.w, START_VIEW.h * aspect()), lite ? LITE_FLIGHT_MS : Math.max(3000, schedule.total - 1200) + 1800);
+    flyTo(
+      START_VIEW.cx,
+      START_VIEW.cy,
+      Math.max(START_VIEW.w, START_VIEW.h * aspect()),
+      lite ? LITE_FLIGHT_MS : Math.max(3000, schedule.total - 1200) + 1800,
+    );
     return () => {
       observer.disconnect();
       stopGlide();
-      if (flightRef.current !== null) { cancelAnimationFrame(flightRef.current); flightRef.current = null; }
-      if (paintFrame.current !== null) { cancelAnimationFrame(paintFrame.current); paintFrame.current = null; }
-      if (settleTimer.current !== null) { clearTimeout(settleTimer.current); settleTimer.current = null; }
+      if (flightRef.current !== null) {
+        cancelAnimationFrame(flightRef.current);
+        flightRef.current = null;
+      }
+      if (paintFrame.current !== null) {
+        cancelAnimationFrame(paintFrame.current);
+        paintFrame.current = null;
+      }
+      if (settleTimer.current !== null) {
+        clearTimeout(settleTimer.current);
+        settleTimer.current = null;
+      }
       window.removeEventListener("scroll", measureWrap);
       window.visualViewport?.removeEventListener("resize", measureWrap);
     };
@@ -825,7 +1163,10 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       stopGlide();
-      if (flightRef.current) { cancelAnimationFrame(flightRef.current); flightRef.current = null; }
+      if (flightRef.current) {
+        cancelAnimationFrame(flightRef.current);
+        flightRef.current = null;
+      }
       setHover(null);
       if (event.ctrlKey || event.metaKey) {
         zoomAt(Math.exp(event.deltaY * 0.01), event.clientX, event.clientY);
@@ -848,8 +1189,10 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   // zoom, and only there: the station panel and the journey pages are outside
   // .map-wrap and still pinch-zoom for anyone reading them.
   useEffect(() => {
-    const overMap = (target: EventTarget | null) => target instanceof Element && !!target.closest(".map-wrap");
-    const stopGesture = (event: Event) => { if (overMap(event.target)) event.preventDefault(); };
+    const overMap = (target: EventTarget | null) => target instanceof Element && Boolean(target.closest(".map-wrap"));
+    const stopGesture = (event: Event) => {
+      if (overMap(event.target)) event.preventDefault();
+    };
     const onTouchMove = (event: TouchEvent) => {
       if (event.touches.length > 1 && overMap(event.target)) event.preventDefault();
     };
@@ -866,92 +1209,128 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     };
   }, []);
 
-  const popStation = useCallback((station: Station, colour: string) => {
-    const el = stationRefs.current.get(station.id);
-    if (!el) return;
-    el.classList.remove("pop");
-    void el.getBoundingClientRect();
-    el.classList.add("pop");
-    el.querySelector(".core")?.addEventListener("animationend", () => el.classList.remove("pop"), { once: true });
-    const r = layout.stations[station.id].interchange ? INTERCHANGE_RADIUS : STATION_RADIUS[station.tag];
-    const ripple = document.createElementNS(SVG_NS, station.tag === "exercise" ? "rect" : "circle");
-    ripple.setAttribute("class", "ripple");
-    ripple.style.setProperty("--c", colour);
-    if (station.tag === "exercise") {
-      ripple.setAttribute("x", String(-r)); ripple.setAttribute("y", String(-r));
-      ripple.setAttribute("width", String(r * 2)); ripple.setAttribute("height", String(r * 2)); ripple.setAttribute("rx", "3");
-    } else {
-      ripple.setAttribute("r", String(r));
-    }
-    el.appendChild(ripple);
-    ripple.addEventListener("animationend", () => ripple.remove());
-  }, [layout]);
+  const popStation = useCallback(
+    (station: Station, colour: string) => {
+      const el = stationRefs.current.get(station.id);
+      if (!el) return;
+      el.classList.remove("pop");
+      el.getBoundingClientRect();
+      el.classList.add("pop");
+      el.querySelector(".core")?.addEventListener("animationend", () => el.classList.remove("pop"), { once: true });
+      const r = layout.stations[station.id].interchange ? INTERCHANGE_RADIUS : STATION_RADIUS[station.tag];
+      const ripple = document.createElementNS(SVG_NS, station.tag === "exercise" ? "rect" : "circle");
+      ripple.setAttribute("class", "ripple");
+      ripple.style.setProperty("--c", colour);
+      if (station.tag === "exercise") {
+        ripple.setAttribute("x", String(-r));
+        ripple.setAttribute("y", String(-r));
+        ripple.setAttribute("width", String(r * 2));
+        ripple.setAttribute("height", String(r * 2));
+        ripple.setAttribute("rx", "3");
+      } else {
+        ripple.setAttribute("r", String(r));
+      }
+      el.appendChild(ripple);
+      ripple.addEventListener("animationend", () => ripple.remove());
+    },
+    [layout],
+  );
 
-  const animateSegment = useCallback((line: Line, fromPos: number, toPos: number, done: () => void) => {
-    const layer = animLayerRef.current;
-    const lineLayout = layout.lines[line.id];
-    if (!layer) { done(); return; }
-    const glow = document.createElementNS(SVG_NS, "path");
-    glow.setAttribute("d", lineLayout.d);
-    glow.setAttribute("class", "track-anim-glow");
-    glow.setAttribute("stroke", colours[line.id]);
-    const overlay = document.createElementNS(SVG_NS, "path");
-    overlay.setAttribute("d", lineLayout.d);
-    overlay.setAttribute("class", "track-anim");
-    overlay.setAttribute("stroke", colours[line.id]);
-    const head = document.createElementNS(SVG_NS, "circle");
-    head.setAttribute("r", "7");
-    head.setAttribute("fill", colours[line.id]);
-    head.setAttribute("stroke", "#fff");
-    head.setAttribute("stroke-width", "2.5");
-    layer.append(glow, overlay, head);
-    const distance = toPos - fromPos;
-    const duration = 260 + Math.min(1100, distance * 5);
-    const start = performance.now();
-    const step = (now: number) => {
-      const k = easeInOut(Math.min(1, (now - start) / duration));
-      const headPos = fromPos + distance * k;
-      const dash = dashArray(spanIntervals(fromPos, headPos, lineLayout.length).sort((a, b) => a[0] - b[0]), lineLayout.length);
-      overlay.setAttribute("stroke-dasharray", dash);
-      glow.setAttribute("stroke-dasharray", dash);
-      const p = lineLayout.pointAt(headPos % lineLayout.length);
-      head.setAttribute("cx", String(p.x));
-      head.setAttribute("cy", String(p.y));
-      if (k < 1) { requestAnimationFrame(step); return; }
-      done();
-      head.remove();
-      for (const el of [glow, overlay]) { el.style.transition = "opacity .4s"; el.style.opacity = "0"; }
-      setTimeout(() => { glow.remove(); overlay.remove(); }, 450);
-    };
-    requestAnimationFrame(step);
-  }, [layout, colours]);
+  const animateSegment = useCallback(
+    (line: Line, fromPos: number, toPos: number, done: () => void) => {
+      const layer = animLayerRef.current;
+      const lineLayout = layout.lines[line.id];
+      if (!layer) {
+        done();
+        return;
+      }
+      const glow = document.createElementNS(SVG_NS, "path");
+      glow.setAttribute("d", lineLayout.d);
+      glow.setAttribute("class", "track-anim-glow");
+      glow.setAttribute("stroke", colours[line.id]);
+      const overlay = document.createElementNS(SVG_NS, "path");
+      overlay.setAttribute("d", lineLayout.d);
+      overlay.setAttribute("class", "track-anim");
+      overlay.setAttribute("stroke", colours[line.id]);
+      const head = document.createElementNS(SVG_NS, "circle");
+      head.setAttribute("r", "7");
+      head.setAttribute("fill", colours[line.id]);
+      head.setAttribute("stroke", "#fff");
+      head.setAttribute("stroke-width", "2.5");
+      layer.append(glow, overlay, head);
+      const distance = toPos - fromPos;
+      const duration = 260 + Math.min(1100, distance * 5);
+      const start = performance.now();
+      const step = (now: number) => {
+        const k = easeInOut(Math.min(1, (now - start) / duration));
+        const headPos = fromPos + distance * k;
+        const dash = dashArray(
+          spanIntervals(fromPos, headPos, lineLayout.length).sort((a, b) => a[0] - b[0]),
+          lineLayout.length,
+        );
+        overlay.setAttribute("stroke-dasharray", dash);
+        glow.setAttribute("stroke-dasharray", dash);
+        const p = lineLayout.pointAt(headPos % lineLayout.length);
+        head.setAttribute("cx", String(p.x));
+        head.setAttribute("cy", String(p.y));
+        if (k < 1) {
+          requestAnimationFrame(step);
+          return;
+        }
+        done();
+        head.remove();
+        for (const el of [glow, overlay]) {
+          el.style.transition = "opacity .4s";
+          el.style.opacity = "0";
+        }
+        setTimeout(() => {
+          glow.remove();
+          overlay.remove();
+        }, 450);
+      };
+      requestAnimationFrame(step);
+    },
+    [layout, colours],
+  );
 
-  const growFrontier = useCallback((line: Line, fromPos: number, toPos: number, done: () => void) => {
-    const layer = animLayerRef.current;
-    const lineLayout = layout.lines[line.id];
-    if (!layer) { done(); return; }
-    const dashed = document.createElementNS(SVG_NS, "path");
-    dashed.setAttribute("class", "track-next");
-    dashed.setAttribute("stroke", colours[line.id]);
-    layer.append(dashed);
-    lockFlowPhase(dashed);
-    const distance = toPos - fromPos;
-    // The frontier grows backwards down the line as often as forwards, so the
-    // distance is signed. Timing it on the signed value gave a negative
-    // duration, an easing that never reached 1, and a frame loop that never
-    // ended — writing a path that grew cubically with every frame. That was
-    // the lag that set in after marking a station read.
-    const duration = 220 + Math.min(900, Math.abs(distance) * 4);
-    const start = performance.now();
-    const step = (now: number) => {
-      const k = easeInOut(Math.min(1, (now - start) / duration));
-      dashed.setAttribute("d", intervalsPath(lineLayout, spanIntervals(fromPos, fromPos + distance * k, lineLayout.length)));
-      if (k < 1) { requestAnimationFrame(step); return; }
-      done();
-      setTimeout(() => dashed.remove(), 80);
-    };
-    requestAnimationFrame(step);
-  }, [layout, colours]);
+  const growFrontier = useCallback(
+    (line: Line, fromPos: number, toPos: number, done: () => void) => {
+      const layer = animLayerRef.current;
+      const lineLayout = layout.lines[line.id];
+      if (!layer) {
+        done();
+        return;
+      }
+      const dashed = document.createElementNS(SVG_NS, "path");
+      dashed.setAttribute("class", "track-next");
+      dashed.setAttribute("stroke", colours[line.id]);
+      layer.append(dashed);
+      lockFlowPhase(dashed);
+      const distance = toPos - fromPos;
+      // The frontier grows backwards down the line as often as forwards, so the
+      // distance is signed. Timing it on the signed value gave a negative
+      // duration, an easing that never reached 1, and a frame loop that never
+      // ended — writing a path that grew cubically with every frame. That was
+      // the lag that set in after marking a station read.
+      const duration = 220 + Math.min(900, Math.abs(distance) * 4);
+      const start = performance.now();
+      const step = (now: number) => {
+        const k = easeInOut(Math.min(1, (now - start) / duration));
+        dashed.setAttribute(
+          "d",
+          intervalsPath(lineLayout, spanIntervals(fromPos, fromPos + distance * k, lineLayout.length)),
+        );
+        if (k < 1) {
+          requestAnimationFrame(step);
+          return;
+        }
+        done();
+        setTimeout(() => dashed.remove(), 80);
+      };
+      requestAnimationFrame(step);
+    },
+    [layout, colours],
+  );
 
   useEffect(() => {
     const read = new Set<string>();
@@ -960,11 +1339,17 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     prevReadRef.current = read;
     if (!prev) return;
     const fresh = [...read].filter((id) => !prev.has(id));
-    if (!fresh.length) return;
-    setAnimating((current) => { const n = new Map(current); fresh.forEach((id) => n.set(id, "fill")); return n; });
-    fresh.forEach((id) => {
-      const line = lineOf.get(id)!;
-      const station = line.stations.find((s) => s.id === id)!;
+    if (fresh.length === 0) return;
+    setAnimating((current) => {
+      const n = new Map(current);
+      for (const id of fresh) n.set(id, "fill");
+      return n;
+    });
+    for (const id of fresh) {
+      const line = lineOf.get(id);
+      if (!line) continue;
+      const station = line.stations.find((s) => s.id === id);
+      if (!station) continue;
       popStation(station, colours[line.id]);
       const length = layout.lines[line.id].length;
       const nodes = trackNodes(line, layout);
@@ -972,34 +1357,58 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
       const own = nodes[at].pos;
       const before = nodeBefore(line, nodes, at);
       const after = nodeAfter(line, nodes, at);
-      const finish = () => setAnimating((current) => { const n = new Map(current); n.delete(id); return n; });
+      const finish = () =>
+        setAnimating((current) => {
+          const n = new Map(current);
+          n.delete(id);
+          return n;
+        });
       const runAll = (jobs: Array<(done: () => void) => void>, done: () => void) => {
-        if (!jobs.length) { done(); return; }
+        if (jobs.length === 0) {
+          done();
+          return;
+        }
         let left = jobs.length;
-        jobs.forEach((job) => job(() => { if (--left === 0) done(); }));
+        for (const job of jobs) {
+          job(() => {
+            if (--left === 0) done();
+          });
+        }
       };
       const reveal = () => {
-        setAnimating((current) => { const n = new Map(current); n.set(id, "grow"); return n; });
+        setAnimating((current) => {
+          const n = new Map(current);
+          n.set(id, "grow");
+          return n;
+        });
         const grows = CURRICULUM.lines.flatMap((track) => {
           const trackNodesList = trackNodes(track, layout);
           const index = trackNodesList.findIndex((n) => n.id === id);
           if (index < 0) return [];
           const trackLength = layout.lines[track.id].length;
           const from = trackNodesList[index].pos;
-          const next = nodeAfter(track, trackNodesList, index);
-          const prev = nodeBefore(track, trackNodesList, index);
+          const nextNode = nodeAfter(track, trackNodesList, index);
+          const prevNode = nodeBefore(track, trackNodesList, index);
           const out: Array<(done: () => void) => void> = [];
-          if (next && !isRead(progress, next.id)) out.push((done) => growFrontier(track, from, next.pos > from ? next.pos : trackLength + next.pos, done));
-          if (prev && !isRead(progress, prev.id)) out.push((done) => growFrontier(track, from, prev.pos < from ? prev.pos : prev.pos - trackLength, done));
+          if (nextNode && !isRead(progress, nextNode.id))
+            out.push((done) =>
+              growFrontier(track, from, nextNode.pos > from ? nextNode.pos : trackLength + nextNode.pos, done),
+            );
+          if (prevNode && !isRead(progress, prevNode.id))
+            out.push((done) =>
+              growFrontier(track, from, prevNode.pos < from ? prevNode.pos : prevNode.pos - trackLength, done),
+            );
           return out;
         });
         runAll(grows, finish);
       };
       const fills: Array<(done: () => void) => void> = [];
-      if (before && isRead(progress, before.id)) fills.push((done) => animateSegment(line, before.pos, own <= before.pos ? length + own : own, done));
-      if (after && isRead(progress, after.id)) fills.push((done) => animateSegment(line, own, after.pos > own ? after.pos : length + after.pos, done));
+      if (before && isRead(progress, before.id))
+        fills.push((done) => animateSegment(line, before.pos, own <= before.pos ? length + own : own, done));
+      if (after && isRead(progress, after.id))
+        fills.push((done) => animateSegment(line, own, after.pos > own ? after.pos : length + after.pos, done));
       runAll(fills, reveal);
-    });
+    }
   }, [progress, layout, colours, popStation, animateSegment, growFrontier]);
 
   const { intervalsByLine, frontierByLine } = useMemo(() => {
@@ -1016,7 +1425,13 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
         const readA = isRead(progress, node.id);
         const readB = isRead(progress, next.id);
         if (!readA && !readB) return;
-        const segments: Interval[] = next.pos > node.pos ? [[node.pos, next.pos]] : [[node.pos, l.length], [0, next.pos]];
+        const segments: Interval[] =
+          next.pos > node.pos
+            ? [[node.pos, next.pos]]
+            : [
+                [node.pos, l.length],
+                [0, next.pos],
+              ];
         if (readA && readB) {
           if (animating.get(node.id) === "fill" || animating.get(next.id) === "fill") dashed.push(...segments);
           else list.push(...segments);
@@ -1031,33 +1446,63 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   }, [layout, progress, animating]);
 
   const dashByLine = useMemo(
-    () => Object.fromEntries(CURRICULUM.lines.map((line) => [line.id, dashArray(intervalsByLine[line.id], layout.lines[line.id].length)])),
+    () =>
+      Object.fromEntries(
+        CURRICULUM.lines.map((line) => [line.id, dashArray(intervalsByLine[line.id], layout.lines[line.id].length)]),
+      ),
     [intervalsByLine, layout],
   );
   const statusKeys = useMemo(
-    () => Object.fromEntries(CURRICULUM.lines.map((line) => [line.id, line.stations.map((s) => statusChar(statusOf(progress, s.id), completeIds.has(s.id))).join("")])),
+    () =>
+      Object.fromEntries(
+        CURRICULUM.lines.map((line) => [
+          line.id,
+          line.stations.map((s) => statusChar(statusOf(progress, s.id), completeIds.has(s.id))).join(""),
+        ]),
+      ),
     [progress, completeIds],
   );
-  const litKey = useMemo(() => CURRICULUM.links.map(([a, b]) => (isRead(progress, a) && isRead(progress, b) ? "1" : "0")).join(""), [progress]);
+  const litKey = useMemo(
+    () => CURRICULUM.links.map(([a, b]) => (isRead(progress, a) && isRead(progress, b) ? "1" : "0")).join(""),
+    [progress],
+  );
   const readEndsByLine = useMemo(
-    () => Object.fromEntries(CURRICULUM.lines.map((line) => [line.id, layout.lines[line.id].termini.map((end) => (isRead(progress, end.stationId) ? "1" : "0")).join("")])),
+    () =>
+      Object.fromEntries(
+        CURRICULUM.lines.map((line) => [
+          line.id,
+          layout.lines[line.id].termini.map((end) => (isRead(progress, end.stationId) ? "1" : "0")).join(""),
+        ]),
+      ),
     [layout, progress],
   );
-  const activeLines = useMemo(() => new Set(Object.entries(intervalsByLine).filter(([, l]) => l.length).map(([id]) => id)), [intervalsByLine]);
-  const selectedLineId = selectedId ? lineOf.get(selectedId)?.id ?? null : null;
+  const activeLines = useMemo(
+    () =>
+      new Set(
+        Object.entries(intervalsByLine)
+          .filter(([, l]) => l.length)
+          .map(([id]) => id),
+      ),
+    [intervalsByLine],
+  );
+  const selectedLineId = selectedId ? (lineOf.get(selectedId)?.id ?? null) : null;
   const focusIds = useMemo(() => {
     const line = CURRICULUM.lines.find((l) => l.id === focusLineId);
     if (!line) return null;
     const ids = new Set(line.stations.map((s) => s.id));
     if (line.from) ids.add(line.from);
-    line.path.forEach((waypoint) => { if (!Array.isArray(waypoint)) ids.add(waypoint.through); });
+    for (const waypoint of line.path) {
+      if (!Array.isArray(waypoint)) ids.add(waypoint.through);
+    }
     return ids;
   }, [focusLineId]);
 
   const subscribe = useCallback((fn: CameraListener) => {
     listeners.current.add(fn);
     fn(pending.current);
-    return () => { listeners.current.delete(fn); };
+    return () => {
+      listeners.current.delete(fn);
+    };
   }, []);
 
   const register = useCallback((id: string, el: SVGGElement | null) => {
@@ -1072,7 +1517,10 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0) return;
     stopGlide();
-    if (flightRef.current) { cancelAnimationFrame(flightRef.current); flightRef.current = null; }
+    if (flightRef.current) {
+      cancelAnimationFrame(flightRef.current);
+      flightRef.current = null;
+    }
     // A click can interrupt the wheel's settling timer too. Flush that view
     // and resume ambient animations even when this press never becomes a pan.
     settle();
@@ -1086,7 +1534,15 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
       return;
     }
     if (pointersRef.current.size > 2) return;
-    dragRef.current = { x: e.clientX, y: e.clientY, ox: pending.current.x, oy: pending.current.y, moved: false, target: e.target as Element, trail: [{ x: e.clientX, y: e.clientY, t: e.timeStamp }] };
+    dragRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      ox: pending.current.x,
+      oy: pending.current.y,
+      moved: false,
+      target: e.target as Element,
+      trail: [{ x: e.clientX, y: e.clientY, t: e.timeStamp }],
+    };
   };
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const pointers = pointersRef.current;
@@ -1108,7 +1564,11 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
       const dx = e.clientX - d.x;
       const dy = e.clientY - d.y;
       if (!d.moved && Math.hypot(dx, dy) < 4) return;
-      if (!d.moved) { d.moved = true; setDragging(true); setHover(null); }
+      if (!d.moved) {
+        d.moved = true;
+        setDragging(true);
+        setHover(null);
+      }
       d.trail.push({ x: e.clientX, y: e.clientY, t: e.timeStamp });
       while (d.trail.length > 2 && e.timeStamp - d.trail[0].t > FLICK_WINDOW) d.trail.shift();
       const unitsPerPixel = pending.current.w / wrapRect().width;
@@ -1118,9 +1578,11 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
       return;
     }
     if (e.pointerType !== "mouse") return;
-    const target = (e.target as Element).closest<SVGGElement>(".station");
-    if (!target) { if (hover) setHover(null); return; }
-    const id = target.dataset.id!;
+    const id = (e.target as Element).closest<SVGGElement>(".station")?.dataset.id;
+    if (!id) {
+      if (hover) setHover(null);
+      return;
+    }
     if (hover?.id === id) return;
     const screen = toScreen(layout.stations[id].pt);
     setHover({ id, x: screen.x, y: screen.y });
@@ -1128,7 +1590,11 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
   const releasePointer = (e: React.PointerEvent<SVGSVGElement>) => {
     pointersRef.current.delete(e.pointerId);
     if (!pinchRef.current) return false;
-    if (pointersRef.current.size === 0) { pinchRef.current = null; setDragging(false); settle(); }
+    if (pointersRef.current.size === 0) {
+      pinchRef.current = null;
+      setDragging(false);
+      settle();
+    }
     return true;
   };
   const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -1136,17 +1602,26 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     const pressed = dragRef.current;
     dragRef.current = null;
     setDragging(false);
-    if (!pressed) { settle(); return; }
+    if (!pressed) {
+      settle();
+      return;
+    }
     if (pressed.moved) {
       const flick = reducedMotion() ? null : flickVelocity(pressed.trail, e.timeStamp);
       if (flick) glide(flick.vx, flick.vy);
       else settle();
       return;
     }
-    const target = pressed.target?.closest<SVGElement>("[data-id]");
-    if (target) { onSelect(target.dataset.id!); return; }
-    const pill = pressed.target?.closest<SVGElement>(".pill");
-    if (pill) { onPinLine(pill.dataset.line!); return; }
+    const pressedId = pressed.target?.closest<SVGElement>("[data-id]")?.dataset.id;
+    if (pressedId !== undefined) {
+      onSelect(pressedId);
+      return;
+    }
+    const pressedLineId = pressed.target?.closest<SVGElement>(".pill")?.dataset.line;
+    if (pressedLineId !== undefined) {
+      onPinLine(pressedLineId);
+      return;
+    }
     onPinLine(null);
   };
 
@@ -1162,39 +1637,82 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
     <>
       <svg
         ref={svgRef}
-        className="map-svg absolute inset-0 h-full w-full"
+        className="map-svg absolute inset-0 size-full"
         xmlns={SVG_NS}
         role="img"
         aria-label="RL curriculum tube map"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={(e) => { if (releasePointer(e)) return; dragRef.current = null; setDragging(false); settle(); }}
+        onPointerCancel={(e) => {
+          if (releasePointer(e)) return;
+          dragRef.current = null;
+          setDragging(false);
+          settle();
+        }}
         onPointerLeave={() => setHover(null)}
       >
-        <Island surface={surface} introMs={schedule.total} />
-        <Zones />
+        <Island surface={surface} introMs={schedule.total} clipId={islandClipId} />
+        <Zones clipId={islandClipId} />
         <g>
           {CURRICULUM.lines.map((line) => (
-            <Track key={line.id} line={line} layout={layout} schedule={schedule} colour={colours[line.id]} dash={dashByLine[line.id]} frontier={frontierByLine[line.id]} readEnds={readEndsByLine[line.id]} masked={intro} dim={dim(line.id)} />
+            <Track
+              key={line.id}
+              line={line}
+              layout={layout}
+              schedule={schedule}
+              colour={colours[line.id]}
+              dash={dashByLine[line.id]}
+              frontier={frontierByLine[line.id]}
+              readEnds={readEndsByLine[line.id]}
+              masked={intro}
+              dim={dim(line.id)}
+            />
           ))}
         </g>
         <g ref={animLayerRef} />
         <g>
           {CURRICULUM.lines.map((line) => (
-            <LineLamps key={line.id} line={line} layout={layout} schedule={schedule} statusKey={statusKeys[line.id]} focusIds={focusIds} />
+            <LineLamps
+              key={line.id}
+              line={line}
+              layout={layout}
+              schedule={schedule}
+              statusKey={statusKeys[line.id]}
+              focusIds={focusIds}
+            />
           ))}
         </g>
         <g>
           {CURRICULUM.lines.map((line) => (
-            <LineBooths key={line.id} line={line} layout={layout} schedule={schedule} statusKey={statusKeys[line.id]} focusIds={focusIds} />
+            <LineBooths
+              key={line.id}
+              line={line}
+              layout={layout}
+              schedule={schedule}
+              statusKey={statusKeys[line.id]}
+              focusIds={focusIds}
+            />
           ))}
         </g>
         <River layout={layout} surface={surface} colours={colours} />
-        <LinkLayer layout={layout} colours={colours} litKey={litKey} selectedId={selectedId} focusLineId={focusLineId} />
+        <LinkLayer
+          layout={layout}
+          colours={colours}
+          litKey={litKey}
+          selectedId={selectedId}
+          focusLineId={focusLineId}
+        />
         <g>
           {CURRICULUM.lines.map((line) => (
-            <Pill key={line.id} line={line} at={layout.pills[line.id]} colour={colours[line.id]} delay={schedule.lineStart[line.id] + 600} dim={dim(line.id)} />
+            <Pill
+              key={line.id}
+              line={line}
+              at={layout.pills[line.id]}
+              colour={colours[line.id]}
+              delay={schedule.lineStart[line.id] + 600}
+              dim={dim(line.id)}
+            />
           ))}
         </g>
         <g>
@@ -1229,13 +1747,26 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
             />
           ))}
         </g>
-        {hereId && layout.stations[hereId] && (
-          <YouAreHere pt={layout.stations[hereId].pt} colour={colours[layout.stations[hereId].lineId]} delay={schedule.total} onClick={() => onSelect(hereId)} />
-        )}
+        {hereId && layout.stations[hereId] ? (
+          <YouAreHere
+            pt={layout.stations[hereId].pt}
+            colour={colours[layout.stations[hereId].lineId]}
+            delay={schedule.total}
+            onClick={() => onSelect(hereId)}
+          />
+        ) : null}
       </svg>
-      <Trains layout={layout} intervals={intervalsByLine} count={trainCount} focusLineId={focusLineId} subscribe={subscribe} river={surface.river} revealAfterMs={lite ? LITE_INTRO_MS : schedule.total} />
+      <Trains
+        layout={layout}
+        intervals={intervalsByLine}
+        count={trainCount}
+        focusLineId={focusLineId}
+        subscribe={subscribe}
+        river={surface.river}
+        revealAfterMs={lite ? LITE_INTRO_MS : schedule.total}
+      />
       <div ref={shieldRef} className="drag-shield absolute inset-0 hidden" />
-      {hereId && layout.stations[hereId] && (
+      {hereId && layout.stations[hereId] ? (
         <HerePin
           pt={layout.stations[hereId].pt}
           colour={colours[layout.stations[hereId].lineId]}
@@ -1243,11 +1774,11 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
           subscribe={subscribe}
           onClick={flyToHere}
         />
-      )}
+      ) : null}
 
-      {hover && hoverStation && (
+      {hover && hoverStation ? (
         <div
-          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[calc(100%+14px)] whitespace-nowrap rounded-md bg-ink px-2.5 py-1.5 text-[12.5px] text-paper shadow-[0_6px_18px_rgba(0,0,0,.18)] after:absolute after:left-1/2 after:-bottom-[5px] after:h-2.5 after:w-2.5 after:-translate-x-1/2 after:rotate-45 after:bg-ink"
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[calc(100%+14px)] whitespace-nowrap rounded-md bg-ink px-2.5 py-1.5 text-[12.5px] text-paper shadow-[0_6px_18px_rgba(0,0,0,.18)] after:absolute after:-bottom-[5px] after:left-1/2 after:size-2.5 after:-translate-x-1/2 after:rotate-45 after:bg-ink"
           style={{ left: hover.x, top: hover.y }}
         >
           {hoverStation.name}
@@ -1256,24 +1787,50 @@ export const TubeMap = forwardRef<TubeMapHandle, TubeMapProps>(function TubeMap(
             {statusOf(progress, hover.id) !== "unread" && ` · ${statusOf(progress, hover.id)}`}
           </small>
         </div>
-      )}
+      ) : null}
 
-      <Minimap layout={layout} surface={surface} colours={colours} activeLines={activeLines} subscribe={subscribe} onJump={(x, y) => { setViewCentered(x, y, pending.current.w, false); settle(); }} />
+      <Minimap
+        layout={layout}
+        surface={surface}
+        colours={colours}
+        activeLines={activeLines}
+        subscribe={subscribe}
+        onJump={(x, y) => {
+          setViewCentered(x, y, pending.current.w, false);
+          settle();
+        }}
+      />
     </>
   );
-});
+}
 
 function YouAreHere({ pt, colour, delay, onClick }: { pt: Pt; colour: string; delay: number; onClick: () => void }) {
   return (
-    <g className="you-are-here" transform={`translate(${pt.x.toFixed(1)} ${pt.y.toFixed(1)})`} style={{ "--delay": `${delay.toFixed(0)}ms` } as React.CSSProperties} onClick={onClick}>
+    // biome-ignore lint/a11y/noStaticElementInteractions: pointer shortcut for selecting the station it marks
+    <g
+      className="you-are-here"
+      transform={`translate(${pt.x.toFixed(1)} ${pt.y.toFixed(1)})`}
+      style={{ "--delay": `${delay.toFixed(0)}ms` } as React.CSSProperties}
+      onClick={onClick}
+    >
       <g className="you-are-here-scale">
-      <g className="you-are-here-bob">
-        <path d="M -8 -50 L 0 -36 L 8 -50 Z" fill={colour} />
-        <rect x={-68} y={-78} width={136} height={30} rx={15} fill={colour} />
-        <circle cx={-51} cy={-63} r={5.5} fill="#fff" />
-        <circle cx={-51} cy={-63} r={2.2} fill={colour} />
-        <text x={-38} y={-63} textAnchor="start" dominantBaseline="middle" fill="#fff" fontSize={12.5} letterSpacing="0.08em">YOU ARE HERE</text>
-      </g>
+        <g className="you-are-here-bob">
+          <path d="M -8 -50 L 0 -36 L 8 -50 Z" fill={colour} />
+          <rect x={-68} y={-78} width={136} height={30} rx={15} fill={colour} />
+          <circle cx={-51} cy={-63} r={5.5} fill="#fff" />
+          <circle cx={-51} cy={-63} r={2.2} fill={colour} />
+          <text
+            x={-38}
+            y={-63}
+            textAnchor="start"
+            dominantBaseline="middle"
+            fill="#fff"
+            fontSize={12.5}
+            letterSpacing="0.08em"
+          >
+            YOU ARE HERE
+          </text>
+        </g>
       </g>
     </g>
   );

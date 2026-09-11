@@ -1,11 +1,11 @@
 "use client";
 
+import { ChevronUpIcon } from "@heroicons/react/16/solid";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Line } from "@/lib/curriculum";
+import { cx } from "@/lib/cx";
 import type { LineProgress } from "@/lib/progress";
 import { TFL_COLOURS } from "@/lib/tfl";
-import { cx } from "@/lib/cx";
-import { ChevronUpIcon } from "@heroicons/react/16/solid";
 
 interface JourneyStripProps {
   lines: Line[];
@@ -69,10 +69,12 @@ export function JourneyStrip({ lines, progressByLine, focusLineId, onHover, onPi
     el.scrollLeft = drag.current.startLeft + ((event.clientX - drag.current.startX) / usable) * range;
   };
 
-  const endDrag = () => { drag.current = null; };
+  const endDrag = () => {
+    drag.current = null;
+  };
 
   return (
-    <footer className={cx("journey-strip flex min-w-0 flex-col border-t border-rule bg-surface", open && "strip-open")}>
+    <footer className={cx("journey-strip flex min-w-0 flex-col border-rule border-t bg-surface", open && "strip-open")}>
       <button
         type="button"
         className="strip-handle"
@@ -80,22 +82,26 @@ export function JourneyStrip({ lines, progressByLine, focusLineId, onHover, onPi
         aria-expanded={open}
         aria-label={open ? "Hide your journey" : "Show your journey"}
       >
-        <ChevronUpIcon className="h-4 w-4" />
+        <ChevronUpIcon className="size-4" />
       </button>
       <div
         ref={rail}
-        className={cx("rail relative mt-1.5 mr-[calc(0.875rem+var(--safe-right))] ml-[calc(0.875rem+var(--safe-left))] h-3 cursor-pointer touch-none select-none transition-opacity", !scroll.overflow && "pointer-events-none opacity-0")}
+        className={cx(
+          "rail relative mt-1.5 mr-[calc(0.875rem+var(--safe-right))] ml-[calc(0.875rem+var(--safe-left))] h-3 cursor-pointer touch-none select-none transition-opacity",
+          !scroll.overflow && "pointer-events-none opacity-0",
+        )}
         onPointerDown={onRailPointerDown}
         onPointerMove={onRailPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         aria-hidden="true"
       >
-        <div className="rail-track absolute top-1/2 right-0 left-0 h-[3px] -translate-y-1/2 rounded-full" />
+        <div className="rail-track absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full" />
         <svg
           className="rail-train absolute top-0 h-3 cursor-grab active:cursor-grabbing"
           style={{ width: TRAIN_WIDTH, left: `calc(${scroll.fraction} * (100% - ${TRAIN_WIDTH}px))` }}
           viewBox="0 0 34 12"
+          aria-hidden="true"
         >
           <rect x="0" y="1" width="34" height="10" rx="3" fill="#E32017" />
           <rect x="4" y="3.5" width="5" height="4" rx="1" fill="#fff" opacity="0.9" />
@@ -105,23 +111,44 @@ export function JourneyStrip({ lines, progressByLine, focusLineId, onHover, onPi
           <rect x="0" y="9" width="34" height="2" rx="1" fill="#0019A8" />
         </svg>
       </div>
-      <div ref={scroller} onScroll={measure} onMouseLeave={() => onHover(null)} className="strip-scroller flex w-full min-w-0 items-stretch gap-2 overflow-x-auto pt-1 pr-[calc(0.875rem+var(--safe-right))] pb-[max(1rem,calc(0.25rem+var(--safe-bottom)))] pl-[calc(0.875rem+var(--safe-left))]">
+      {/* biome-ignore lint/a11y: leaving the strip with the pointer clears the hover, which has no keyboard counterpart */}
+      <div
+        ref={scroller}
+        onScroll={measure}
+        onMouseLeave={() => onHover(null)}
+        className="strip-scroller flex w-full min-w-0 items-stretch gap-2 overflow-x-auto pt-1 pr-[calc(0.875rem+var(--safe-right))] pb-[max(1rem,calc(0.25rem+var(--safe-bottom)))] pl-[calc(0.875rem+var(--safe-left))]"
+      >
         {lines.map((line) => {
           const p = progressByLine[line.id];
           const colour = TFL_COLOURS[line.tfl];
           return (
-            <div
+            <button
+              type="button"
               key={line.id}
               title={`${line.phase} · ${line.name}`}
               onMouseEnter={() => onHover(line.id)}
-              onClick={() => { onPick(line.id); setOpen(false); }}
-              className={cx("flex min-w-[176px] flex-none cursor-pointer flex-col justify-end gap-1.5 rounded-md px-3 pt-1.5 pb-1.5 transition hover:bg-tint", focusLineId === line.id && "bg-tint")}
+              onClick={() => {
+                onPick(line.id);
+                setOpen(false);
+              }}
+              className={cx(
+                "flex min-w-[176px] flex-none cursor-pointer flex-col justify-end gap-1.5 rounded-md px-3 pt-1.5 pb-1.5 text-left transition hover:bg-tint",
+                focusLineId === line.id && "bg-tint",
+              )}
             >
-              <div className="whitespace-nowrap text-[11px] text-ink-soft"><b className="font-normal text-ink">{line.phase}</b> {line.short}</div>
-              <div className="journey-bar relative h-2.5 overflow-hidden rounded-full bg-bar" style={{ "--tick": `${(100 / line.stations.length).toFixed(2)}%` } as React.CSSProperties}>
-                <div className="h-full transition-[width] duration-700" style={{ width: `${(100 * (p.read + p.reading * 0.5)) / p.total}%`, background: colour }} />
+              <div className="whitespace-nowrap text-[11px] text-ink-soft">
+                <b className="font-normal text-ink">{line.phase}</b> {line.short}
               </div>
-            </div>
+              <div
+                className="journey-bar relative h-2.5 overflow-hidden rounded-full bg-bar"
+                style={{ "--tick": `${(100 / line.stations.length).toFixed(2)}%` } as React.CSSProperties}
+              >
+                <div
+                  className="h-full transition-[width] duration-700"
+                  style={{ width: `${(100 * (p.read + p.reading * 0.5)) / p.total}%`, background: colour }}
+                />
+              </div>
+            </button>
           );
         })}
       </div>

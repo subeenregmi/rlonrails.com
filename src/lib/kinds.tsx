@@ -1,14 +1,28 @@
+import {
+  AcademicCapIcon,
+  BookmarkIcon,
+  BookOpenIcon,
+  CodeBracketIcon,
+  DocumentTextIcon,
+  GlobeAltIcon,
+  NewspaperIcon,
+  PlayCircleIcon,
+} from "@heroicons/react/16/solid";
 import type { ComponentType, SVGProps } from "react";
 import type { ResourceKind, Station } from "./curriculum";
 import { cx } from "./cx";
-import {
-  AcademicCapIcon, BookOpenIcon, BookmarkIcon, CodeBracketIcon, DocumentTextIcon, GlobeAltIcon, NewspaperIcon, PlayCircleIcon,
-} from "@heroicons/react/16/solid";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
 export const KIND_LABEL: Record<ResourceKind, string> = {
-  paper: "Paper", chapter: "Chapter", book: "Book", video: "Video", course: "Course", code: "Code", blog: "Blog", site: "Web",
+  paper: "Paper",
+  chapter: "Chapter",
+  book: "Book",
+  video: "Video",
+  course: "Course",
+  code: "Code",
+  blog: "Blog",
+  site: "Web",
 };
 const KIND_STYLE: Record<ResourceKind, string> = {
   paper: "bg-[#003688] text-white",
@@ -56,7 +70,15 @@ export const sourceHeading = (station: Station) => {
  * already carrying a station beside it; the label stays in the accessible name
  * either way.
  */
-export function KindBadge({ kind, compact = false, className }: { kind: ResourceKind; compact?: boolean; className?: string }) {
+export function KindBadge({
+  kind,
+  compact = false,
+  className,
+}: {
+  kind: ResourceKind;
+  compact?: boolean;
+  className?: string;
+}) {
   const Icon = KIND_ICON[kind];
   return (
     <span
@@ -68,7 +90,7 @@ export function KindBadge({ kind, compact = false, className }: { kind: Resource
         className,
       )}
     >
-      <Icon className="h-3 w-3" aria-hidden="true" />
+      <Icon className="size-3" aria-hidden="true" />
       <span className={cx(compact && "sr-only")}>{KIND_LABEL[kind]}</span>
     </span>
   );

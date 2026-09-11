@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import type { Pt } from "@/lib/geometry";
-import type { CameraListener } from "./TubeMap";
 import type { View } from "./Minimap";
+import type { CameraListener } from "./TubeMap";
 
 interface HerePinProps {
   /** The station the "YOU ARE HERE" marker sits on, in map units. */
@@ -30,7 +30,8 @@ const RAISE_BELOW = 0.4;
 const DISMISS_ABOVE = 0.6;
 const MINIMAP_GAP = 10;
 
-const overlap = (aLo: number, aHi: number, bLo: number, bHi: number) => Math.max(0, Math.min(aHi, bHi) - Math.max(aLo, bLo));
+const overlap = (aLo: number, aHi: number, bLo: number, bHi: number) =>
+  Math.max(0, Math.min(aHi, bHi) - Math.max(aLo, bLo));
 
 /**
  * A compass pin for the "YOU ARE HERE" marker. Panning away from the marker —
@@ -44,7 +45,7 @@ export function HerePin({ pt, colour, wrapRect, subscribe, onClick }: HerePinPro
   const arrowRef = useRef<HTMLSpanElement>(null);
   const minimapRef = useRef<HTMLElement | null>(null);
   const viewRef = useRef<View | null>(null);
-  const shownRef = useRef(false);
+  const shownRef = useRef<boolean>(false);
   // Map text — and with it the banner — is drawn larger on phones.
   const textScaleRef = useRef(1);
 
@@ -59,7 +60,10 @@ export function HerePin({ pt, colour, wrapRect, subscribe, onClick }: HerePinPro
     };
     const box = field.getBoundingClientRect();
     const wrap = wrapRect();
-    if (box.width < 2 * PIN_REACH || box.height < 2 * PIN_REACH || wrap.width < 10) { show(false); return; }
+    if (box.width < 2 * PIN_REACH || box.height < 2 * PIN_REACH || wrap.width < 10) {
+      show(false);
+      return;
+    }
     const pixelsPerUnit = wrap.width / view.w;
     const x = wrap.left + (pt.x - view.x) * pixelsPerUnit;
     const y = wrap.top + (pt.y - view.y) * pixelsPerUnit;
@@ -74,7 +78,10 @@ export function HerePin({ pt, colour, wrapRect, subscribe, onClick }: HerePinPro
     const seen = overlap(x - half, x + half, box.left, box.right) * overlap(top, bottom, box.top, box.bottom);
     const marker = 2 * half * (bottom - top);
     const fraction = seen / Math.max(1, Math.min(marker, box.width * box.height));
-    if (fraction >= (shownRef.current ? DISMISS_ABOVE : RAISE_BELOW)) { show(false); return; }
+    if (fraction >= (shownRef.current ? DISMISS_ABOVE : RAISE_BELOW)) {
+      show(false);
+      return;
+    }
 
     // Send the pin out from the middle of the map towards the marker, and stop
     // it where that ray leaves the field.
@@ -84,15 +91,22 @@ export function HerePin({ pt, colour, wrapRect, subscribe, onClick }: HerePinPro
     const dy = y - midY || (dx ? 0 : -1);
     const reachX = box.width / 2 - PIN_REACH;
     const reachY = box.height / 2 - PIN_REACH;
-    const t = Math.min(dx ? reachX / Math.abs(dx) : Infinity, dy ? reachY / Math.abs(dy) : Infinity);
+    const t = Math.min(
+      dx ? reachX / Math.abs(dx) : Number.POSITIVE_INFINITY,
+      dy ? reachY / Math.abs(dy) : Number.POSITIVE_INFINITY,
+    );
     let px = midX + dx * t;
     let py = midY + dy * t;
 
     // The minimap owns the bottom-right corner. Step the pin off it, whichever
     // way out is shorter, rather than parking on top of it.
-    const minimap = (minimapRef.current ??= document.querySelector<HTMLElement>(".mm-frame"))?.getBoundingClientRect();
-    if (minimap && overlap(px - PIN_REACH, px + PIN_REACH, minimap.left - MINIMAP_GAP, minimap.right) > 0
-      && overlap(py - PIN_REACH, py + PIN_REACH, minimap.top - MINIMAP_GAP, minimap.bottom) > 0) {
+    minimapRef.current ??= document.querySelector<HTMLElement>(".mm-frame");
+    const minimap = minimapRef.current?.getBoundingClientRect();
+    if (
+      minimap &&
+      overlap(px - PIN_REACH, px + PIN_REACH, minimap.left - MINIMAP_GAP, minimap.right) > 0 &&
+      overlap(py - PIN_REACH, py + PIN_REACH, minimap.top - MINIMAP_GAP, minimap.bottom) > 0
+    ) {
       const above = minimap.top - MINIMAP_GAP - PIN_REACH;
       const beside = minimap.left - MINIMAP_GAP - PIN_REACH;
       if (Math.abs(py - above) <= Math.abs(px - beside)) py = above;
@@ -102,11 +116,19 @@ export function HerePin({ pt, colour, wrapRect, subscribe, onClick }: HerePinPro
     }
 
     pin.style.transform = `translate3d(${(px - box.left - PIN_HALF).toFixed(1)}px, ${(py - box.top - PIN_HALF).toFixed(1)}px, 0)`;
-    if (arrowRef.current) arrowRef.current.style.transform = `rotate(${((Math.atan2(dy, dx) * 180) / Math.PI + 90).toFixed(1)}deg)`;
+    if (arrowRef.current)
+      arrowRef.current.style.transform = `rotate(${((Math.atan2(dy, dx) * 180) / Math.PI + 90).toFixed(1)}deg)`;
     show(true);
   }, [pt, wrapRect]);
 
-  useEffect(() => subscribe((view) => { viewRef.current = view; place(); }), [subscribe, place]);
+  useEffect(
+    () =>
+      subscribe((view) => {
+        viewRef.current = view;
+        place();
+      }),
+    [subscribe, place],
+  );
 
   // The panel sliding in and out narrows the field without moving the camera,
   // so the field's own size is the second thing worth watching.
@@ -124,7 +146,7 @@ export function HerePin({ pt, colour, wrapRect, subscribe, onClick }: HerePinPro
   return (
     <div
       ref={fieldRef}
-      className="here-pin-field pointer-events-none absolute z-20 top-[calc(5.5rem+var(--safe-top))] right-[calc(0.875rem+var(--safe-right))] bottom-[calc(0.875rem+var(--safe-bottom))] left-[calc(0.875rem+var(--safe-left))]"
+      className="here-pin-field pointer-events-none absolute top-[calc(5.5rem+var(--safe-top))] right-[calc(0.875rem+var(--safe-right))] bottom-[calc(0.875rem+var(--safe-bottom))] left-[calc(0.875rem+var(--safe-left))] z-20"
     >
       <button
         ref={pinRef}
@@ -136,7 +158,7 @@ export function HerePin({ pt, colour, wrapRect, subscribe, onClick }: HerePinPro
         onClick={onClick}
       >
         <span ref={arrowRef} className="here-pin-arrow" aria-hidden="true">
-          <svg viewBox="-36 -36 72 72">
+          <svg viewBox="-36 -36 72 72" aria-hidden="true">
             <path d="M 0 -32 L 7 -21 L -7 -21 Z" />
           </svg>
         </span>

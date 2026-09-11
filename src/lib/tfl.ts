@@ -23,7 +23,15 @@ export const TFL_COLOURS = {
 
 export type TflLine = keyof typeof TFL_COLOURS;
 
-const LIGHT_LINES: ReadonlySet<TflLine> = new Set(["circle", "hammersmith", "waterloo", "jubilee", "tram", "lioness", "suffragette"]);
+const LIGHT_LINES: ReadonlySet<TflLine> = new Set([
+  "circle",
+  "hammersmith",
+  "waterloo",
+  "jubilee",
+  "tram",
+  "lioness",
+  "suffragette",
+]);
 
 export const isLightLine = (line: TflLine) => LIGHT_LINES.has(line);
 

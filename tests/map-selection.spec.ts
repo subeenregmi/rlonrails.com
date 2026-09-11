@@ -1,9 +1,11 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 const cs285 = "p0-cs285";
 const daydreamer = "p6h-daydreamer";
+const MOVING = /moving/;
+const SELECTED = /selected/;
 
-async function centre(page: Page, id: string) {
+function centre(page: Page, id: string) {
   return page.locator(`.station[data-id="${id}"] .hit`).evaluate((el) => {
     const box = el.getBoundingClientRect();
     return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
@@ -12,15 +14,19 @@ async function centre(page: Page, id: string) {
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((id) => {
-    localStorage.setItem("rl-underground.progress", JSON.stringify({
-      stations: { [id]: { status: "read", readAt: "2026-09-01", updatedAt: null, skills: [], deliverables: [] } },
-      resources: {}, tracks: [],
-    }));
+    localStorage.setItem(
+      "rl-underground.progress",
+      JSON.stringify({
+        stations: { [id]: { status: "read", readAt: "2026-09-01", updatedAt: null, skills: [], deliverables: [] } },
+        resources: {},
+        tracks: [],
+      }),
+    );
   }, cs285);
   await page.goto("/");
   await expect(page.locator(".station.read")).toHaveCount(1);
   await expect(page.locator(".intro, .intro-lite")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.locator(".map-svg")).not.toHaveClass(/moving/);
+  await expect(page.locator(".map-svg")).not.toHaveClass(MOVING);
 
   // Put these two stations in the exposed part of the map, then zoom until
   // they fill its height. CS285's 20 connections mostly extend offscreen.
@@ -28,11 +34,14 @@ test.beforeEach(async ({ page }) => {
   const b = await centre(page, daydreamer);
   const map = page.locator(".map-svg");
   await map.dispatchEvent("wheel", {
-    clientX: 700, clientY: 460, deltaX: (a.x + b.x) / 2 - 700, deltaY: (a.y + b.y) / 2 - 460,
+    clientX: 700,
+    clientY: 460,
+    deltaX: (a.x + b.x) / 2 - 700,
+    deltaY: (a.y + b.y) / 2 - 460,
   });
-  await expect(map).not.toHaveClass(/moving/);
+  await expect(map).not.toHaveClass(MOVING);
   await map.dispatchEvent("wheel", { clientX: 700, clientY: 460, deltaY: -130, ctrlKey: true });
-  await expect(map).not.toHaveClass(/moving/);
+  await expect(map).not.toHaveClass(MOVING);
 });
 
 test("close-up CS285 and DayDreamer switches preserve the camera and fade connections", async ({ page }) => {
@@ -41,7 +50,7 @@ test("close-up CS285 and DayDreamer switches preserve the camera and fade connec
   for (const id of [cs285, daydreamer, cs285, daydreamer]) {
     const point = await centre(page, id);
     await page.mouse.click(point.x, point.y);
-    await expect(page.locator(`.station[data-id="${id}"]`)).toHaveClass(/selected/);
+    await expect(page.locator(`.station[data-id="${id}"]`)).toHaveClass(SELECTED);
     await expect(map).toHaveAttribute("viewBox", viewBox!);
     const active = page.locator(".link.active");
     await expect(active).toHaveCount(id === cs285 ? 20 : 1);
@@ -62,7 +71,11 @@ test("switching the close-up stations does not replace large map compositor laye
   let samples = 0;
   session.on("LayerTree.layerTreeDidChange", ({ layers }) => {
     for (const layer of layers ?? []) {
-      if (layer.backendNodeId === node.backendNodeId && layer.drawsContent && layer.width * layer.height > 1440 * 1000 * 2) {
+      if (
+        layer.backendNodeId === node.backendNodeId &&
+        layer.drawsContent &&
+        layer.width * layer.height > 1440 * 1000 * 2
+      ) {
         largeLayers.add(layer.layerId);
         samples++;
       }

@@ -218,7 +218,9 @@ body.map-dragging {
 }
 
 .dimmable {
-  transition: fill-opacity 0.35s, stroke-opacity 0.35s;
+  transition:
+    fill-opacity 0.35s,
+    stroke-opacity 0.35s;
 }
 .dimmable[data-dim="true"] {
   fill-opacity: 0.12;
@@ -291,7 +293,10 @@ body.map-dragging {
   fill: var(--station-fill);
   stroke: var(--locked);
   stroke-width: 4;
-  transition: fill 0.35s, stroke 0.35s, stroke-width 0.2s;
+  transition:
+    fill 0.35s,
+    stroke 0.35s,
+    stroke-width 0.2s;
   transform-box: fill-box;
   transform-origin: center;
   stroke-dasharray: 101;
@@ -300,7 +305,9 @@ body.map-dragging {
 .station .dot {
   fill: #fff;
   opacity: 0;
-  transition: opacity 0.35s, fill 0.35s;
+  transition:
+    opacity 0.35s,
+    fill 0.35s;
 }
 .station .halo {
   fill: var(--c);
@@ -517,7 +524,9 @@ body.map-dragging {
   font-size: calc(16px * var(--map-text));
   fill: var(--ink-faint);
   cursor: pointer;
-  transition: fill 0.3s, stroke-width 0.8s;
+  transition:
+    fill 0.3s,
+    stroke-width 0.8s;
   paint-order: stroke;
   stroke: var(--paper);
   stroke-width: calc(4px * var(--map-text));
@@ -564,7 +573,10 @@ body.map-dragging {
      their strokes avoids a separate opacity layer per offscreen curve. */
   stroke-opacity: 0;
   visibility: hidden;
-  transition: stroke-opacity 0.12s, stroke-width 0.3s, visibility 0s 0.12s;
+  transition:
+    stroke-opacity 0.12s,
+    stroke-width 0.3s,
+    visibility 0s 0.12s;
   pointer-events: none;
   animation: march 1.2s linear infinite paused;
 }
@@ -574,7 +586,10 @@ body.map-dragging {
 .link.active {
   stroke-opacity: 1;
   visibility: visible;
-  transition: stroke-opacity 0.3s 0.12s, stroke-width 0.3s, visibility 0s;
+  transition:
+    stroke-opacity 0.3s 0.12s,
+    stroke-width 0.3s,
+    visibility 0s;
   stroke-width: 3px;
   animation-play-state: running;
 }
@@ -905,7 +920,9 @@ body.map-dragging {
   .intro *,
   .intro-lite,
   .intro-lite * {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override animation timing */
     animation-duration: 1ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override animation timing */
     animation-delay: 0ms !important;
   }
   .you-are-here-bob,
@@ -1035,7 +1052,8 @@ body.map-dragging {
   }
 }
 @keyframes bob {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -1043,7 +1061,8 @@ body.map-dragging {
   }
 }
 @keyframes pin-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
   }
   50% {
@@ -1061,7 +1080,8 @@ body.map-dragging {
   }
 }
 @keyframes flicker {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.85;
     transform: scale(1);
   }
@@ -1092,7 +1112,8 @@ body.map-dragging {
   }
 }
 @keyframes flame {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.9;
   }
   50% {

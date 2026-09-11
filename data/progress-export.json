@@ -1,1 +1,47 @@
-{"stations":{"p0-sb":{"status":"read","readAt":"2026-09-06T12:55:30.936Z","notes":"","updatedAt":"2026-09-06T17:02:00.837Z"},"p0-silver":{"status":"read","readAt":"2026-09-06T12:55:33.603Z","notes":"","updatedAt":"2026-09-06T17:02:00.837Z"},"p0-cs285":{"status":"read","readAt":"2026-09-06T12:55:36.669Z","notes":"","updatedAt":"2026-09-06T17:02:00.837Z"},"p0-spinup":{"status":"read","readAt":"2026-09-06T12:55:41.852Z","notes":"","updatedAt":"2026-09-06T17:02:00.837Z"},"p1-pg":{"status":"read","readAt":"2026-09-06T12:56:23.269Z","notes":"","updatedAt":"2026-09-06T17:02:00.837Z"},"p3-gae":{"status":"unread","readAt":null,"notes":"\n","updatedAt":"2026-09-06T17:02:00.837Z"}},"resources":{"p0-sb:1":true,"p0-sb:2":true,"p0-silver:1":true,"p0-silver:2":true,"p0-cs285:1":true,"p0-cs285:2":true,"p0-spinup:1":true,"p0-spinup:2":true,"p1-pg:1":true,"p1-pg:2":true}}
+{
+  "stations": {
+    "p0-sb": {
+      "status": "read",
+      "readAt": "2026-09-06T12:55:30.936Z",
+      "notes": "",
+      "updatedAt": "2026-09-06T17:02:00.837Z"
+    },
+    "p0-silver": {
+      "status": "read",
+      "readAt": "2026-09-06T12:55:33.603Z",
+      "notes": "",
+      "updatedAt": "2026-09-06T17:02:00.837Z"
+    },
+    "p0-cs285": {
+      "status": "read",
+      "readAt": "2026-09-06T12:55:36.669Z",
+      "notes": "",
+      "updatedAt": "2026-09-06T17:02:00.837Z"
+    },
+    "p0-spinup": {
+      "status": "read",
+      "readAt": "2026-09-06T12:55:41.852Z",
+      "notes": "",
+      "updatedAt": "2026-09-06T17:02:00.837Z"
+    },
+    "p1-pg": {
+      "status": "read",
+      "readAt": "2026-09-06T12:56:23.269Z",
+      "notes": "",
+      "updatedAt": "2026-09-06T17:02:00.837Z"
+    },
+    "p3-gae": { "status": "unread", "readAt": null, "notes": "\n", "updatedAt": "2026-09-06T17:02:00.837Z" }
+  },
+  "resources": {
+    "p0-sb:1": true,
+    "p0-sb:2": true,
+    "p0-silver:1": true,
+    "p0-silver:2": true,
+    "p0-cs285:1": true,
+    "p0-cs285:2": true,
+    "p0-spinup:1": true,
+    "p0-spinup:2": true,
+    "p1-pg:1": true,
+    "p1-pg:2": true
+  }
+}
