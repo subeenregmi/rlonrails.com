@@ -1,4 +1,4 @@
-import { rideOrder, type Curriculum, type Line, type PillPoint, type Waypoint } from "./curriculum";
+import { type Curriculum, type Line, type PillPoint, rideOrder, type Waypoint } from "./curriculum";
 
 export interface Pt {
   x: number;
@@ -99,21 +99,7 @@ function buildPath(waypoints: Pt[], closed: boolean): BuiltPath {
   let d = "";
   const push = (p: Pt) => points.push(p);
 
-  if (!closed) {
-    d = `M ${fmt(waypoints[0])}`;
-    push(waypoints[0]);
-    waypointPos.push(0);
-    for (let i = 1; i < n - 1; i++) {
-      const { a, b } = cornerCut(waypoints[i - 1], waypoints[i], waypoints[i + 1]);
-      d += ` L ${fmt(a)} Q ${fmt(waypoints[i])} ${fmt(b)}`;
-      push(a);
-      quadPoints(a, waypoints[i], b).forEach(push);
-      waypointPos.push(points.length - 1);
-    }
-    d += ` L ${fmt(waypoints[n - 1])}`;
-    push(waypoints[n - 1]);
-    waypointPos.push(points.length - 1);
-  } else {
+  if (closed) {
     const first = cornerCut(waypoints[n - 1], waypoints[0], waypoints[1]);
     d = `M ${fmt(first.b)}`;
     push(first.b);
@@ -128,11 +114,25 @@ function buildPath(waypoints: Pt[], closed: boolean): BuiltPath {
     d += ` L ${fmt(first.a)} Q ${fmt(waypoints[0])} ${fmt(first.b)} Z`;
     push(first.a);
     quadPoints(first.a, waypoints[0], first.b).forEach(push);
+  } else {
+    d = `M ${fmt(waypoints[0])}`;
+    push(waypoints[0]);
+    waypointPos.push(0);
+    for (let i = 1; i < n - 1; i++) {
+      const { a, b } = cornerCut(waypoints[i - 1], waypoints[i], waypoints[i + 1]);
+      d += ` L ${fmt(a)} Q ${fmt(waypoints[i])} ${fmt(b)}`;
+      push(a);
+      quadPoints(a, waypoints[i], b).forEach(push);
+      waypointPos.push(points.length - 1);
+    }
+    d += ` L ${fmt(waypoints[n - 1])}`;
+    push(waypoints[n - 1]);
+    waypointPos.push(points.length - 1);
   }
 
   const cumulative = [0];
   for (let i = 1; i < points.length; i++) cumulative.push(cumulative[i - 1] + len(sub(points[i], points[i - 1])));
-  const length = cumulative[cumulative.length - 1];
+  const length = cumulative.at(-1) ?? 0;
   return { d, points, cumulative, length, waypointPos: waypointPos.map((idx) => cumulative[idx]) };
 }
 
@@ -163,7 +163,7 @@ function makeSampler(built: BuiltPath) {
 
 function nearestPos(built: BuiltPath, target: Pt): number {
   let best = 0;
-  let bestDist = Infinity;
+  let bestDist = Number.POSITIVE_INFINITY;
   for (let i = 1; i < built.points.length; i++) {
     const a = built.points[i - 1];
     const b = built.points[i];
@@ -184,7 +184,8 @@ function stationPositions(line: Line, built: BuiltPath): number[] {
   const count = line.stations.length;
   const L = built.length;
   if (line.snap) {
-    if (line.snap.length !== count) throw new Error(`${line.id}: snap has ${line.snap.length} points for ${count} stations`);
+    if (line.snap.length !== count)
+      throw new Error(`${line.id}: snap has ${line.snap.length} points for ${count} stations`);
     return line.snap.map(([x, y]) => nearestPos(built, { x, y }));
   }
   if (line.closed) {
@@ -226,7 +227,12 @@ function labelFor(line: Line, index: number, pt: Pt, tangent: Pt, centroid: Pt, 
   return placeLabel(pt, normal, radius);
 }
 
-function pillPlacement(line: Line, positions: number[], pointAt: (s: number) => Pt, tangentAt: (s: number) => Pt): PillPoint {
+function pillPlacement(
+  line: Line,
+  positions: number[],
+  pointAt: (s: number) => Pt,
+  tangentAt: (s: number) => Pt,
+): PillPoint {
   const spec = line.pill;
   if ("x" in spec) return spec;
   const k = Math.min(Math.floor(spec.at), positions.length - 1);
@@ -258,7 +264,8 @@ const onAnotherTrack = (pt: Pt, owner: string, lines: Record<string, LineLayout>
  * mark: its bar would sit across the other line's rails.
  */
 function pruneTermini(lines: Record<string, LineLayout>) {
-  for (const l of Object.values(lines)) l.termini = l.termini.filter((end) => !onAnotherTrack(terminusPoint(end), l.id, lines));
+  for (const l of Object.values(lines))
+    l.termini = l.termini.filter((end) => !onAnotherTrack(terminusPoint(end), l.id, lines));
 }
 
 function referenced(line: Line): string[] {
@@ -292,7 +299,10 @@ function moveJunctionLabels(curriculum: Curriculum, stations: Record<string, Sta
     const [a, b] = line.path;
     if (isThrough(a) || isThrough(b)) continue;
     const station = stations[line.from];
-    const d = norm({ x: b[0] - (line.relativePath ? 0 : station.pt.x), y: b[1] - (line.relativePath ? 0 : station.pt.y) });
+    const d = norm({
+      x: b[0] - (line.relativePath ? 0 : station.pt.x),
+      y: b[1] - (line.relativePath ? 0 : station.pt.y),
+    });
     let normal: Pt | null = null;
     if (Math.abs(d.y) > Math.abs(d.x) * 2) normal = { x: 0, y: -Math.sign(d.y) };
     else if (Math.abs(d.x) > Math.abs(d.y) * 2) normal = { x: -Math.sign(d.x), y: 0 };
@@ -307,8 +317,8 @@ export function computeLayout(curriculum: Curriculum): MapLayout {
   const junctions = new Set(curriculum.lines.flatMap(referenced));
   const pending = [...curriculum.lines];
 
-  while (pending.length) {
-    const ready = pending.findIndex((line) => referenced(line).every((id) => stations[id]));
+  while (pending.length > 0) {
+    const ready = pending.findIndex((candidate) => referenced(candidate).every((id) => stations[id]));
     if (ready === -1) throw new Error(`Unresolvable line anchors: ${pending.map((l) => l.id).join(", ")}`);
     const [line] = pending.splice(ready, 1);
     const waypoints = resolveWaypoints(line, stations);
@@ -317,11 +327,29 @@ export function computeLayout(curriculum: Curriculum): MapLayout {
     const termini: Terminus[] = [];
     if (!line.closed) {
       const first = line.path[0];
-      const last = line.path[line.path.length - 1];
-      if (!line.from && !isThrough(first)) termini.push({ pt: pointAt(0), tangent: tangentAt(0), stationId: line.stations[0].id, outward: -1 });
-      if (!isThrough(last)) termini.push({ pt: pointAt(built.length), tangent: tangentAt(built.length), stationId: line.stations[line.stations.length - 1].id, outward: 1 });
+      const last = line.path.at(-1);
+      if (!line.from && !isThrough(first))
+        termini.push({ pt: pointAt(0), tangent: tangentAt(0), stationId: line.stations[0].id, outward: -1 });
+      if (last && !isThrough(last)) {
+        const lastStation = line.stations.at(-1);
+        if (!lastStation) throw new Error(`${line.id}: no stations`);
+        termini.push({
+          pt: pointAt(built.length),
+          tangent: tangentAt(built.length),
+          stationId: lastStation.id,
+          outward: 1,
+        });
+      }
     }
-    lines[line.id] = { id: line.id, d: built.d, length: built.length, pointAt, tangentAt, posOf: (pt) => nearestPos(built, pt), termini };
+    lines[line.id] = {
+      id: line.id,
+      d: built.d,
+      length: built.length,
+      pointAt,
+      tangentAt,
+      posOf: (pt) => nearestPos(built, pt),
+      termini,
+    };
 
     const centroid = waypoints.reduce(
       (acc, p) => ({ x: acc.x + p.x / waypoints.length, y: acc.y + p.y / waypoints.length }),
@@ -380,7 +408,9 @@ export function introSchedule(curriculum: Curriculum, layout: MapLayout): IntroS
   const stationDelay: Record<string, number> = {};
   const passTime: Record<string, number> = {};
 
-  const touch = (id: string, t: number) => { passTime[id] = Math.min(passTime[id] ?? Infinity, t); };
+  const touch = (id: string, t: number) => {
+    passTime[id] = Math.min(passTime[id] ?? Number.POSITIVE_INFINITY, t);
+  };
   const schedule = (line: Line, start: number) => {
     const l = layout.lines[line.id];
     lineStart[line.id] = start;
@@ -396,15 +426,15 @@ export function introSchedule(curriculum: Curriculum, layout: MapLayout): IntroS
   };
 
   const reachTime = (line: Line) => {
-    if (line.from) return passTime[line.from] ?? Infinity;
+    if (line.from) return passTime[line.from] ?? Number.POSITIVE_INFINITY;
     const times = line.stations.map((s) => passTime[s.id]).filter((t): t is number => t !== undefined);
-    return times.length ? Math.min(...times) : Infinity;
+    return times.length > 0 ? Math.min(...times) : Number.POSITIVE_INFINITY;
   };
   const order = rideOrder(curriculum);
   let previous = INTRO_LEAD;
   order.forEach((line, i) => {
     const reached = reachTime(line);
-    const start = i === 0 ? INTRO_LEAD : reached === Infinity ? previous + 400 : reached;
+    const start = i === 0 ? INTRO_LEAD : reached === Number.POSITIVE_INFINITY ? previous + 400 : reached;
     schedule(line, start);
     previous = start;
   });
@@ -442,7 +472,10 @@ function markFootprint(layout: MapLayout, curriculum: Curriculum, grid: Grid) {
     markRect(left, y - half, left + width, y + half);
   };
   for (const line of Object.values(layout.lines)) {
-    for (let s = 0; s <= line.length; s += ISLAND_CELL / 2) { const p = line.pointAt(s); mark(p.x, p.y); }
+    for (let s = 0; s <= line.length; s += ISLAND_CELL / 2) {
+      const p = line.pointAt(s);
+      mark(p.x, p.y);
+    }
   }
   for (const line of curriculum.lines) {
     for (const station of line.stations) {
@@ -513,10 +546,16 @@ function traceOuterLoop(cols: number, rows: number, cells: Uint8Array): Pt[] {
       used.add(edgeKey);
       while (key(current) !== startKey) {
         loop.push(current);
-        const options = (outgoing.get(key(current)) ?? []).filter((next) => !used.has(`${key(current)}>${key(next)}`));
-        if (!options.length) break;
+        const options = (outgoing.get(key(current)) ?? []).filter(
+          (option) => !used.has(`${key(current)}>${key(option)}`),
+        );
+        if (options.length === 0) break;
         const dir = { x: current.x - prev.x, y: current.y - prev.y };
-        options.sort((a, b) => turn(dir, { x: b.x - current.x, y: b.y - current.y }) - turn(dir, { x: a.x - current.x, y: a.y - current.y }));
+        options.sort(
+          (a, b) =>
+            turn(dir, { x: b.x - current.x, y: b.y - current.y }) -
+            turn(dir, { x: a.x - current.x, y: a.y - current.y }),
+        );
         const next = options[0];
         used.add(`${key(current)}>${key(next)}`);
         prev = current;
@@ -525,7 +564,10 @@ function traceOuterLoop(cols: number, rows: number, cells: Uint8Array): Pt[] {
       loops.push(loop);
     }
   }
-  return loops.reduce((best, loop) => (Math.abs(polygonArea(loop)) > Math.abs(polygonArea(best)) ? loop : best), loops[0] ?? []);
+  return loops.reduce(
+    (best, loop) => (Math.abs(polygonArea(loop)) > Math.abs(polygonArea(best)) ? loop : best),
+    loops[0] ?? [],
+  );
 }
 
 const turn = (a: Pt, b: Pt) => a.x * b.y - a.y * b.x;
@@ -570,7 +612,9 @@ function chamferSteps(pts: Pt[]): Pt[] {
   return mergeCollinear(out);
 }
 
-export interface RiverVertex extends Pt { w: number }
+export interface RiverVertex extends Pt {
+  w: number;
+}
 
 export interface RiverSpec {
   course: RiverVertex[];
@@ -625,11 +669,14 @@ export interface WaveMark {
   duration: number;
 }
 
-const seededRandom = (seed: number) => () => {
-  seed = (seed + 0x6d2b79f5) | 0;
-  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+const seededRandom = (seed: number) => {
+  let state = seed;
+  return () => {
+    state = (state + 0x6d_2b_79_f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
+  };
 };
 
 function offsetPolygon(polygon: Pt[], distance: number): Pt[] {
@@ -642,8 +689,8 @@ function offsetPolygon(polygon: Pt[], distance: number): Pt[] {
     const n1 = { x: e1.y, y: -e1.x };
     const n2 = { x: e2.y, y: -e2.x };
     const miter = norm({ x: n1.x + n2.x, y: n1.y + n2.y });
-    const scale = Math.min(2, 1 / Math.max(0.5, miter.x * n1.x + miter.y * n1.y));
-    return { x: v.x + miter.x * distance * scale, y: v.y + miter.y * distance * scale };
+    const miterScale = Math.min(2, 1 / Math.max(0.5, miter.x * n1.x + miter.y * n1.y));
+    return { x: v.x + miter.x * distance * miterScale, y: v.y + miter.y * distance * miterScale };
   });
 }
 
@@ -665,7 +712,8 @@ export function coastRings(coast: Pt[], bounds: { x: number; y: number; w: numbe
   const cells = new Uint8Array(cols * rows);
   for (let j = 0; j < rows; j++) {
     for (let i = 0; i < cols; i++) {
-      if (insidePolygon({ x: originX + (i + 0.5) * WAVE_CELL, y: originY + (j + 0.5) * WAVE_CELL }, coast)) cells[j * cols + i] = 1;
+      if (insidePolygon({ x: originX + (i + 0.5) * WAVE_CELL, y: originY + (j + 0.5) * WAVE_CELL }, coast))
+        cells[j * cols + i] = 1;
     }
   }
   return WAVE_RING_STEPS.map((step) => {
@@ -675,7 +723,11 @@ export function coastRings(coast: Pt[], bounds: { x: number; y: number; w: numbe
   });
 }
 
-interface ArcEdge { index: number; start: number; end: number }
+interface ArcEdge {
+  index: number;
+  start: number;
+  end: number;
+}
 
 function arcEdges(polygon: Pt[]): { edges: ArcEdge[]; perimeter: number } {
   const edges: ArcEdge[] = [];
@@ -690,10 +742,12 @@ function arcEdges(polygon: Pt[]): { edges: ArcEdge[]; perimeter: number } {
 
 function edgeAt(edges: ArcEdge[], perimeter: number, s: number): ArcEdge {
   const local = ((s % perimeter) + perimeter) % perimeter;
-  return edges.find((e) => local >= e.start && local <= e.end) ?? edges[edges.length - 1];
+  const edge = edges.find((e) => local >= e.start && local <= e.end) ?? edges.at(-1);
+  if (!edge) throw new Error("polygon has no edges");
+  return edge;
 }
 
-function pointAt(polygon: Pt[], edges: ArcEdge[], perimeter: number, s: number): Pt {
+function pointOnPolygon(polygon: Pt[], edges: ArcEdge[], perimeter: number, s: number): Pt {
   const local = ((s % perimeter) + perimeter) % perimeter;
   const edge = edgeAt(edges, perimeter, s);
   const a = polygon[edge.index];
@@ -706,7 +760,8 @@ function subPolyline(polygon: Pt[], s0: number, s1: number): Pt[] {
   const { edges, perimeter } = arcEdges(polygon);
   const first = edgeAt(edges, perimeter, s0);
   const last = edgeAt(edges, perimeter, s1);
-  const points = [pointAt(polygon, edges, perimeter, s0)];
+  const start = pointOnPolygon(polygon, edges, perimeter, s0);
+  const points = [start];
   if (first.index !== last.index || s1 - s0 > perimeter / 2) {
     for (let i = first.index + 1; i <= first.index + polygon.length; i++) {
       const idx = i % polygon.length;
@@ -714,24 +769,31 @@ function subPolyline(polygon: Pt[], s0: number, s1: number): Pt[] {
       if (idx === last.index) break;
     }
   }
-  points.push(pointAt(polygon, edges, perimeter, s1));
-  const start = points[0];
-  const finish = points[points.length - 1];
-  return points.filter((p, i) => i === 0 || i === points.length - 1 || (len(sub(p, start)) >= END_CLEARANCE && len(sub(p, finish)) >= END_CLEARANCE));
+  const finish = pointOnPolygon(polygon, edges, perimeter, s1);
+  points.push(finish);
+  return points.filter(
+    (p, i) =>
+      i === 0 ||
+      i === points.length - 1 ||
+      (len(sub(p, start)) >= END_CLEARANCE && len(sub(p, finish)) >= END_CLEARANCE),
+  );
 }
 
 function nearestArc(polygon: Pt[], edges: ArcEdge[], p: Pt): number {
   let best = 0;
-  let bestDist = Infinity;
-  edges.forEach((e) => {
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (const e of edges) {
     const a = polygon[e.index];
     const b = polygon[(e.index + 1) % polygon.length];
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
     const d = Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
-    if (d < bestDist) { bestDist = d; best = e.start + t * (e.end - e.start); }
-  });
+    if (d < bestDist) {
+      bestDist = d;
+      best = e.start + t * (e.end - e.start);
+    }
+  }
   return best;
 }
 
@@ -749,16 +811,18 @@ export function coastWaves(rings: Pt[][], slots: number, variants: number, avoid
     const length = 260 + rand() * 180;
     const delay = -rand() * 7;
     const duration = 5 + rand() * 2.5;
-    const centre = lo + ((k % variants + rand()) / variants) * (hi - lo);
+    const centre = lo + (((k % variants) + rand()) / variants) * (hi - lo);
     const s0 = Math.max(lo + SECTOR_GAP, centre - length / 2);
     const s1 = Math.min(hi - SECTOR_GAP, s0 + length);
     if (s1 - s0 < MIN_WAVE) return [];
     const first = subPolyline(inner, s0, s1);
+    const firstEnd = first.at(-1);
+    if (!firstEnd) return [];
     const others = rings.slice(1).map((ring, i) => {
       const { edges, perimeter: p } = outerEdges[i + 1];
       const a0 = nearestArc(ring, edges, first[0]);
-      const a1 = nearestArc(ring, edges, first[first.length - 1]);
-      const forward = ((a1 - a0) % p + p) % p;
+      const a1 = nearestArc(ring, edges, firstEnd);
+      const forward = (((a1 - a0) % p) + p) % p;
       if (forward > p / 2 || forward < MIN_WAVE * 0.6) return null;
       return subPolyline(ring, a0, a0 + forward);
     });
@@ -771,7 +835,6 @@ export function coastWaves(rings: Pt[][], slots: number, variants: number, avoid
     return all.map((pts) => ({ d: buildPath(pts, false).d, nx: normal.x * 26, ny: normal.y * 26, delay, duration }));
   });
 }
-
 
 function riverMask(grid: Grid, spec: RiverSpec): Uint8Array {
   const { originX, originY, cols, rows } = grid;
@@ -800,10 +863,15 @@ function riverMask(grid: Grid, spec: RiverSpec): Uint8Array {
 function outlinePath(grid: Grid, cells: Uint8Array): { d: string; polygon: Pt[] } {
   const loop = chamferSteps(mergeCollinear(traceOuterLoop(grid.cols, grid.rows, cells)));
   const polygon = loop.map((p) => ({ x: grid.originX + p.x * ISLAND_CELL, y: grid.originY + p.y * ISLAND_CELL }));
-  return { d: polygon.length ? buildPath(polygon, true).d : "", polygon };
+  return { d: polygon.length > 0 ? buildPath(polygon, true).d : "", polygon };
 }
 
-export function surfaceGeometry(layout: MapLayout, curriculum: Curriculum, bounds: { x: number; y: number; w: number; h: number }, river: RiverSpec): Surface {
+export function surfaceGeometry(
+  layout: MapLayout,
+  curriculum: Curriculum,
+  bounds: { x: number; y: number; w: number; h: number },
+  river: RiverSpec,
+): Surface {
   const margin = ISLAND_CELL * (ISLAND_REACH + 3);
   const grid: Grid = {
     originX: bounds.x - margin,
@@ -827,11 +895,20 @@ export function surfaceGeometry(layout: MapLayout, curriculum: Curriculum, bound
   const coast = outlinePath(grid, land);
   const riverCells = new Uint8Array(land.length);
   for (let i = 0; i < land.length; i++) {
-    if (land[i] && wet[i]) { riverCells[i] = 1; land[i] = 0; }
+    if (land[i] && wet[i]) {
+      riverCells[i] = 1;
+      land[i] = 0;
+    }
   }
   const island = outlinePath(grid, land);
   const channel = outlinePath(grid, riverCells);
-  return { island: island.d, islandPolygon: island.polygon, coastPolygon: coast.polygon, river: channel.d, riverPolygon: channel.polygon };
+  return {
+    island: island.d,
+    islandPolygon: island.polygon,
+    coastPolygon: coast.polygon,
+    river: channel.d,
+    riverPolygon: channel.polygon,
+  };
 }
 
 function insidePolygon(p: Pt, polygon: Pt[]): boolean {

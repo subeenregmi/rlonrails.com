@@ -1,4 +1,13 @@
-import { findStation, resourceIds, stationIds, type Curriculum, type Line, type Resource, type Stage, type Station } from "./curriculum";
+import {
+  type Curriculum,
+  findStation,
+  type Line,
+  type Resource,
+  resourceIds,
+  type Stage,
+  type Station,
+  stationIds,
+} from "./curriculum";
 import type { MapLayout } from "./geometry";
 
 export type Status = "unread" | "reading" | "read";
@@ -36,7 +45,13 @@ const RANK: Record<Status, number> = { unread: 0, reading: 1, read: 2 };
 
 export const emptyProgress = (): Progress => ({ stations: {}, resources: {}, tracks: [], tracksAt: null });
 
-export const emptyStation = (): StationProgress => ({ status: "unread", readAt: null, updatedAt: null, skills: [], deliverables: [] });
+export const emptyStation = (): StationProgress => ({
+  status: "unread",
+  readAt: null,
+  updatedAt: null,
+  skills: [],
+  deliverables: [],
+});
 
 export const stationProgress = (progress: Progress, id: string): StationProgress =>
   progress.stations[id] ?? emptyStation();
@@ -92,9 +107,16 @@ export function deliverables(station: Station, done: string[]): Deliverables {
  * deliverables. Neither can pull a station back down: what you have understood is
  * yours to declare, and the tick boxes only ever push it forwards.
  */
-export function suggestStatus(station: Station, progress: Progress, resources: Record<string, boolean>, done: string[]): Status {
+export function suggestStatus(
+  station: Station,
+  progress: Progress,
+  resources: Record<string, boolean>,
+  done: string[],
+): Status {
   const current = statusOf(progress, station.id);
-  const suggested = isExercise(station) ? statusFromDeliverables(station, done) : statusFromResources(station, resources);
+  const suggested = isExercise(station)
+    ? statusFromDeliverables(station, done)
+    : statusFromResources(station, resources);
   return RANK[suggested] > RANK[current] ? suggested : current;
 }
 
@@ -117,11 +139,15 @@ export function isValidProgress(value: unknown): value is Progress {
   if (!candidate.stations || typeof candidate.stations !== "object") return false;
   if (!candidate.resources || typeof candidate.resources !== "object") return false;
   if (candidate.tracks !== undefined && !Array.isArray(candidate.tracks)) return false;
-  if (candidate.tracksAt !== undefined && candidate.tracksAt !== null && typeof candidate.tracksAt !== "string") return false;
-  return Object.values(candidate.stations).every((s) => s && typeof s === "object" && isStatus((s as StationProgress).status));
+  if (candidate.tracksAt !== undefined && candidate.tracksAt !== null && typeof candidate.tracksAt !== "string")
+    return false;
+  return Object.values(candidate.stations).every(
+    (s) => s && typeof s === "object" && isStatus((s as StationProgress).status),
+  );
 }
 
-const validDate = (value: unknown): string | null => (typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : null);
+const validDate = (value: unknown): string | null =>
+  typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : null;
 const strings = (value: unknown, allowed?: (v: string) => boolean): string[] =>
   Array.isArray(value) ? value.filter((v): v is string => typeof v === "string" && (!allowed || allowed(v))) : [];
 
@@ -142,7 +168,8 @@ export function sanitizeProgress(curriculum: Curriculum, progress: Progress): Pr
       deliverables: strings(station.deliverables, (d) => ids.has(d)),
     };
   }
-  for (const [id, done] of Object.entries(progress.resources)) if (resources.has(id) && done === true) clean.resources[id] = true;
+  for (const [id, done] of Object.entries(progress.resources))
+    if (resources.has(id) && done === true) clean.resources[id] = true;
   clean.tracks = [...new Set(strings(progress.tracks, (id) => trackLines.has(id)))];
   clean.tracksAt = validDate(progress.tracksAt);
   return clean;
@@ -203,7 +230,11 @@ export function lineProgress(line: Line, progress: Progress): LineProgress {
     if (status === "read") routeRead++;
   }
   return {
-    read, reading, total: line.stations.length, routeRead, routeTotal,
+    read,
+    reading,
+    total: line.stations.length,
+    routeRead,
+    routeTotal,
     complete: routeTotal > 0 && routeRead === routeTotal,
     explored: read === line.stations.length,
   };
@@ -240,7 +271,13 @@ export function lineTally(p: LineProgress): LineTally {
     need,
     complete: onRoute ? p.complete : p.explored,
     fraction: need > 0 ? done / need : 0,
-    note: !onRoute ? "not on your route" : off === 0 ? "" : extra > 0 ? `${extra} of ${off} explored off route` : `${off} more off route`,
+    note: onRoute
+      ? off === 0
+        ? ""
+        : extra > 0
+          ? `${extra} of ${off} explored off route`
+          : `${off} more off route`
+      : "not on your route",
     title: onRoute
       ? `${p.routeRead} of ${p.routeTotal} on your route · ${p.read} of ${p.total} read on the line`
       : `Nothing on this line is on your route · ${p.read} of ${p.total} read on the line`,
@@ -248,9 +285,9 @@ export function lineTally(p: LineProgress): LineTally {
 }
 
 export const nextOnLine = (line: Line, progress: Progress) =>
-  line.stations.find((s) => !isRead(progress, s.id) && isOnRoute(s, line, progress.tracks))
-  ?? line.stations.find((s) => !isRead(progress, s.id))
-  ?? null;
+  line.stations.find((s) => !isRead(progress, s.id) && isOnRoute(s, line, progress.tracks)) ??
+  line.stations.find((s) => !isRead(progress, s.id)) ??
+  null;
 
 /**
  * Whether a stage's stations are behind the reader, judged on the route
@@ -272,7 +309,8 @@ function stageComplete(curriculum: Curriculum, stage: Stage, progress: Progress)
  * everyone, which is exactly why the choice can wait until then.
  */
 export const chooseDue = (curriculum: Curriculum, progress: Progress): boolean =>
-  progress.tracksAt === null && curriculum.stages.some((stage) => stage.choose && stageComplete(curriculum, stage, progress));
+  progress.tracksAt === null &&
+  curriculum.stages.some((stage) => stage.choose && stageComplete(curriculum, stage, progress));
 
 /** How many stops picking a specialisation would add to the route. */
 export const trackStops = (line: Line): number =>
@@ -336,14 +374,18 @@ export function nextStop(curriculum: Curriculum, progress: Progress): Station | 
   const stops = ride(curriculum, progress.tracks);
   const at = positionOf(stops, progress);
   const lineId = stops[at]?.line.id;
-  const unread = (stop: Stop) => !isRead(progress, stop.station.id);
-  const ready = (stop: Stop) => unread(stop) && prereqsMet(stop.station, progress);
+  const unread = (candidate: Stop) => !isRead(progress, candidate.station.id);
+  const ready = (candidate: Stop) => unread(candidate) && prereqsMet(candidate.station, progress);
   const onward = stops.slice(at);
   const passed = stops.slice(0, at);
-  const thisLine = (list: Stop[]) => list.filter((stop) => stop.line.id === lineId);
-  const stop = thisLine(onward).find(ready) ?? thisLine(passed).find(ready)
-    ?? onward.find(ready) ?? passed.find(ready)
-    ?? onward.find(unread) ?? passed.find(unread);
+  const thisLine = (list: Stop[]) => list.filter((candidate) => candidate.line.id === lineId);
+  const stop =
+    thisLine(onward).find(ready) ??
+    thisLine(passed).find(ready) ??
+    onward.find(ready) ??
+    passed.find(ready) ??
+    onward.find(unread) ??
+    passed.find(unread);
   return stop?.station ?? null;
 }
 
@@ -370,9 +412,23 @@ export interface Totals {
 
 export function totals(curriculum: Curriculum, progress: Progress): Totals {
   const t: Totals = {
-    read: 0, reading: 0, total: 0, coreRead: 0, coreTotal: 0, trackRead: 0, trackTotal: 0,
-    exerciseRead: 0, exerciseTotal: 0, referenceRead: 0, referenceTotal: 0, routeRead: 0, routeTotal: 0, implemented: 0, investigated: 0,
-    resourcesDone: 0, resourcesTotal: 0,
+    read: 0,
+    reading: 0,
+    total: 0,
+    coreRead: 0,
+    coreTotal: 0,
+    trackRead: 0,
+    trackTotal: 0,
+    exerciseRead: 0,
+    exerciseTotal: 0,
+    referenceRead: 0,
+    referenceTotal: 0,
+    routeRead: 0,
+    routeTotal: 0,
+    implemented: 0,
+    investigated: 0,
+    resourcesDone: 0,
+    resourcesTotal: 0,
   };
   for (const line of curriculum.lines) {
     for (const station of line.stations) {
@@ -383,11 +439,26 @@ export function totals(curriculum: Curriculum, progress: Progress): Totals {
       if (progressFor.status === "reading") t.reading++;
       if (progressFor.skills.includes("implemented")) t.implemented++;
       if (progressFor.skills.includes("investigated")) t.investigated++;
-      if (station.tag === "core") { t.coreTotal++; if (read) t.coreRead++; }
-      if (station.tag === "exercise") { t.exerciseTotal++; if (read) t.exerciseRead++; }
-      if (station.tag === "reference") { t.referenceTotal++; if (read) t.referenceRead++; }
-      if (station.tag === "track" && isOnRoute(station, line, progress.tracks)) { t.trackTotal++; if (read) t.trackRead++; }
-      if (isOnRoute(station, line, progress.tracks)) { t.routeTotal++; if (read) t.routeRead++; }
+      if (station.tag === "core") {
+        t.coreTotal++;
+        if (read) t.coreRead++;
+      }
+      if (station.tag === "exercise") {
+        t.exerciseTotal++;
+        if (read) t.exerciseRead++;
+      }
+      if (station.tag === "reference") {
+        t.referenceTotal++;
+        if (read) t.referenceRead++;
+      }
+      if (station.tag === "track" && isOnRoute(station, line, progress.tracks)) {
+        t.trackTotal++;
+        if (read) t.trackRead++;
+      }
+      if (isOnRoute(station, line, progress.tracks)) {
+        t.routeTotal++;
+        if (read) t.routeRead++;
+      }
       for (const resource of station.resources) {
         t.resourcesTotal++;
         if (progress.resources[resource.id]) t.resourcesDone++;

@@ -26,7 +26,7 @@ interface MinimapProps {
 export function Minimap({ layout, surface, colours, activeLines, subscribe, onJump }: MinimapProps) {
   const rectRef = useRef<SVGRectElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const dragging = useRef(false);
+  const dragging = useRef<boolean>(false);
 
   useEffect(
     () =>
@@ -42,9 +42,9 @@ export function Minimap({ layout, surface, colours, activeLines, subscribe, onJu
   );
 
   const jump = (event: React.PointerEvent) => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const p = new DOMPoint(event.clientX, event.clientY).matrixTransform(svg.getScreenCTM()!.inverse());
+    const screenMatrix = svgRef.current?.getScreenCTM();
+    if (!screenMatrix) return;
+    const p = new DOMPoint(event.clientX, event.clientY).matrixTransform(screenMatrix.inverse());
     onJump(p.x, p.y);
   };
 
@@ -52,16 +52,30 @@ export function Minimap({ layout, surface, colours, activeLines, subscribe, onJu
     <div className="mm-frame absolute right-[calc(0.875rem+var(--safe-right))] bottom-3.5 h-16 w-[150px] cursor-crosshair overflow-hidden rounded-lg border border-rule shadow-[0_4px_16px_rgba(0,0,0,.12)] sm:h-24 sm:w-[230px]">
       <svg
         ref={svgRef}
-        className="block h-full w-full"
+        className="block size-full"
+        aria-hidden="true"
         viewBox={`${MAP_BOUNDS.x - INSET} ${MAP_BOUNDS.y - INSET} ${MAP_BOUNDS.w + INSET * 2} ${MAP_BOUNDS.h + INSET * 2}`}
-        onPointerDown={(e) => { dragging.current = true; e.currentTarget.setPointerCapture(e.pointerId); jump(e); }}
-        onPointerMove={(e) => { if (dragging.current) jump(e); }}
-        onPointerUp={() => { dragging.current = false; }}
+        onPointerDown={(e) => {
+          dragging.current = true;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          jump(e);
+        }}
+        onPointerMove={(e) => {
+          if (dragging.current) jump(e);
+        }}
+        onPointerUp={() => {
+          dragging.current = false;
+        }}
       >
         <path className="mm-island" d={surface.island} />
         <path className="mm-river" d={surface.river} />
         {CURRICULUM.lines.map((line) => (
-          <path key={line.id} className="mm-line" d={layout.lines[line.id].d} stroke={activeLines.has(line.id) ? colours[line.id] : "var(--locked)"} />
+          <path
+            key={line.id}
+            className="mm-line"
+            d={layout.lines[line.id].d}
+            stroke={activeLines.has(line.id) ? colours[line.id] : "var(--locked)"}
+          />
         ))}
         <rect ref={rectRef} className="mm-view" rx={20} />
       </svg>

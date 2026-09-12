@@ -14,6 +14,19 @@ isolated browser profile, and check zoom anchoring, clicks during zoom, panning,
 and touch pinching. This keeps saved progress and build mode consistent when
 comparing local rendering with the development site.
 
+## Linting and formatting
+
+```sh
+npm run lint
+npm run lint:fix
+```
+
+Biome lints and formats TypeScript, CSS and JSON against the strict rules in
+`biome.json`, including its Next.js, React and Tailwind checks. `lint:fix`
+applies safe fixes, sorts imports and Tailwind classes, and formats. Pull
+requests and deploys run `npm run lint:ci`, which fails on warnings, so `main`
+only deploys once the check passes.
+
 ## Deployment
 
 Local

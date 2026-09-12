@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { Line } from "@/lib/curriculum";
-import { TFL_COLOURS, textOn } from "@/lib/tfl";
 import { cx } from "@/lib/cx";
+import { TFL_COLOURS, textOn } from "@/lib/tfl";
 
 export interface ToastMessage {
   key: number;
@@ -37,7 +37,9 @@ export function Toast({ toast }: { toast: ToastMessage | null }) {
         shown.leaving ? "toast-exit" : "toast-enter",
       )}
       style={{ background: colour, color: textOn(line.tfl) }}
-      onAnimationEnd={(event) => { if (shown.leaving && event.target === event.currentTarget) setShown(null); }}
+      onAnimationEnd={(event) => {
+        if (shown.leaving && event.target === event.currentTarget) setShown(null);
+      }}
     >
       {line.name} {explored ? "line complete" : "route complete"}
       <small className="mt-0.5 block text-[12px] opacity-85">
@@ -45,22 +47,26 @@ export function Toast({ toast }: { toast: ToastMessage | null }) {
           ? `${line.phase} · Every station read and every lamp lit.`
           : `${line.phase} · Every stop your route asks for. ${remaining} more to explore.`}
       </small>
-      {explored && Array.from({ length: SPARKS }, (_, i) => {
-        const angle = (Math.PI * 2 * i) / SPARKS + ((i * 7919) % 40) / 100;
-        const radius = 130 + ((i * 104729) % 170);
-        return (
-          <span
-            key={i}
-            className="spark"
-            style={{
-              background: palette[i % palette.length],
-              "--dx": `${Math.cos(angle) * radius}px`,
-              "--dy": `${Math.sin(angle) * radius}px`,
-              animationDelay: `${(i * 37) % 120}ms`,
-            } as React.CSSProperties}
-          />
-        );
-      })}
+      {explored &&
+        Array.from({ length: SPARKS }, (_, i) => {
+          const angle = (Math.PI * 2 * i) / SPARKS + ((i * 7919) % 40) / 100;
+          const radius = 130 + ((i * 104_729) % 170);
+          return (
+            <span
+              // biome-ignore lint/suspicious/noArrayIndexKey: sparks are a fixed set identified only by position
+              key={i}
+              className="spark"
+              style={
+                {
+                  background: palette[i % palette.length],
+                  "--dx": `${Math.cos(angle) * radius}px`,
+                  "--dy": `${Math.sin(angle) * radius}px`,
+                  animationDelay: `${(i * 37) % 120}ms`,
+                } as React.CSSProperties
+              }
+            />
+          );
+        })}
     </div>
   );
 }

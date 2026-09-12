@@ -10,7 +10,11 @@ on:
     types: [published]
 
 jobs:
+  check:
+    uses: ./.github/workflows/ci.yml
+
   deploy:
+    needs: check
     runs-on: ubuntu-latest
 
     steps:

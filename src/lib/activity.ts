@@ -25,6 +25,11 @@ export function streaks(days: Record<string, number>, today = new Date()): { cur
   }
   const start = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
   let current = 0;
-  for (let t = active.has(dayKey(new Date(start))) ? start : start - DAY_MS; active.has(dayKey(new Date(t))); t -= DAY_MS) current++;
+  for (
+    let t = active.has(dayKey(new Date(start))) ? start : start - DAY_MS;
+    active.has(dayKey(new Date(t)));
+    t -= DAY_MS
+  )
+    current++;
   return { current, longest };
 }
