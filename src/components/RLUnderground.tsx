@@ -37,9 +37,11 @@ import {
 } from "@/lib/progress";
 import { progressStore, saveProgress } from "@/lib/storage";
 import { TFL_COLOURS } from "@/lib/tfl";
+import { CurriculumHelpLink } from "./CurriculumHelpLink";
 import { Dialog, type DialogMessage } from "./Dialog";
 import { FloatingBar } from "./FloatingBar";
 import { JourneyStrip } from "./JourneyStrip";
+import { Roundel } from "./Roundel";
 import { type Connection, type PanelView, StationPanel } from "./StationPanel";
 import { Toast, type ToastMessage } from "./Toast";
 import { TubeMap, type TubeMapHandle } from "./TubeMap";
@@ -506,7 +508,16 @@ export function RLUnderground() {
   if (!stored) {
     return (
       <div className="grid h-full grid-rows-[1fr_auto]">
-        <div className="map-wrap" />
+        <div className="map-wrap relative">
+          <nav
+            aria-label="About RL on Rails"
+            className="absolute top-[calc(1rem+var(--safe-top))] left-[calc(1rem+var(--safe-left))] flex h-[60px] max-w-[calc(100%-2rem-var(--safe-left)-var(--safe-right))] items-center gap-3 rounded-full bg-tfl-blue pr-2.5 pl-2 text-white shadow-[0_10px_30px_rgba(0,25,168,.28),inset_0_-3px_0_#E32017]"
+          >
+            <Roundel className="size-11 flex-none" />
+            <span className="whitespace-nowrap text-[19px] lowercase tracking-[0.07em]">RL on Rails</span>
+            <CurriculumHelpLink />
+          </nav>
+        </div>
         <div className="h-[calc(84px+var(--safe-bottom))] border-rule border-t bg-surface" />
       </div>
     );

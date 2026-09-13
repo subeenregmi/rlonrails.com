@@ -45,7 +45,7 @@ test("homepage discovery and topic reading work without JavaScript", async ({ br
   const page = await context.newPage();
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reinforcement learning roadmap");
-  await page.getByRole("link", { name: "Read the curriculum" }).click();
+  await page.getByRole("link", { name: "Help", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reinforcement learning curriculum");
   await page.getByRole("link", { name: "Foundations", exact: true }).first().click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Foundations");

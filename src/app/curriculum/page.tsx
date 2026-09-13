@@ -14,16 +14,19 @@ export default function CurriculumPage() {
   const stations = CURRICULUM.lines.flatMap((line) => line.stations);
   return (
     <>
-      <h1>Reinforcement learning curriculum</h1>
-      <p className="text-ink-soft text-lg">
-        A reading and implementation roadmap through reinforcement learning, organised like the London Underground.
-        Start with the foundations, build working agents, then choose the research directions that interest you.
-      </p>
+      <header className="reader-intro">
+        <span className="reader-label">Your guide to the map</span>
+        <h1>Reinforcement learning curriculum</h1>
+        <p className="text-ink-soft text-lg">
+          A reading and implementation roadmap through reinforcement learning, organised like the London Underground.
+          Start with the foundations, build working agents, then choose the research directions that interest you.
+        </p>
+      </header>
       <p>
         {CURRICULUM.lines.length} topic lines connect {stations.length} stations of papers, courses and exercises. Each
         station explains the idea, why it matters and what to read or build.
       </p>
-      <section aria-label="How to use the roadmap">
+      <section aria-label="How to use the roadmap" className="reader-overview">
         <h2>How to use the roadmap</h2>
         <p>
           Start with Orientation to check your mathematics, programming and machine learning prerequisites. Work through
@@ -43,7 +46,7 @@ export default function CurriculumPage() {
         <h2>Recommended learning sequence</h2>
         <ol className="space-y-6">
           {CURRICULUM.stages.map((stage) => (
-            <li key={stage.id}>
+            <li key={stage.id} className="rounded-xl border border-rule bg-surface p-4">
               <h3>{stage.title}</h3>
               <p>{stage.content}</p>
               <p className="text-ink-soft">Ready to move on: {stage.evidence}</p>

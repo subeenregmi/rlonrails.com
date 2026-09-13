@@ -2,6 +2,10 @@
 
 Audited 13 September 2026. Research used a cheaper GPT-5.6 Luna sub-agent, primary Google/Chrome/Next.js documentation, repository inspection, and Lighthouse 13.4.1. Implementation follows the documentation shipped with this repository's Next.js 16.3.4.
 
+UI follow-up: the separate homepage heading strip was replaced by a **Help** link inside the existing blue map bar. A visible Help link remains in the server-rendered loading bar, so readers can still reach the curriculum without JavaScript. The accessible page heading and metadata remain. Article headers, station cards and resource panels now use each topic's map-line colour. The comparison table below describes the original SEO implementation. A fresh homepage check after this visual follow-up measured performance 96, LCP 2.61 s, FCP 1.37 s, blocking time 18 ms and CLS 0; SEO and accessibility scored 100. The `help-followup` run is saved in the measurements file.
+
+Live indexing check after merge: `rlonrails.com` had no blocking `X-Robots-Tag`; `dev.rlonrails.com` correctly returned `noindex, nofollow`. Production still returned 404 for the new curriculum and robots routes because merging updates development while production follows stable releases. Development remains excluded from search by explicit preference; publishing a release is the remaining step to make the new public URLs available on production.
+
 ## Findings and implementation
 
 The main search visibility problem was content discovery. The homepage returned an empty map shell until hydration read browser storage. The 19 topic lines, 151 stations, explanations and resource links were available through an interactive SVG and panels, with no public reading URLs. Google can render JavaScript, but recommends meaningful HTML and crawlable links. A perfect Lighthouse SEO score does not establish that a site's content is discoverable or that it will rank. [Google's developer SEO guide](https://developers.google.com/search/docs/fundamentals/get-started-developers), [JavaScript SEO basics](https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics).

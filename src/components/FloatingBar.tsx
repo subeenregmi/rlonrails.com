@@ -1,11 +1,12 @@
 "use client";
 
-import { ChevronDownIcon, XMarkIcon } from "@heroicons/react/16/solid";
+import { CalendarDaysIcon, ChevronDownIcon, XMarkIcon } from "@heroicons/react/16/solid";
 import { type ReactNode, useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import type { Line } from "@/lib/curriculum";
 import { cx } from "@/lib/cx";
 import { type LineProgress, lineTally, type Totals } from "@/lib/progress";
 import { isLightLine, TFL_COLOURS } from "@/lib/tfl";
+import { CurriculumHelpLink } from "./CurriculumHelpLink";
 import { MiniHeatmap } from "./Heatmap";
 import { Roundel } from "./Roundel";
 import { Tick } from "./Tick";
@@ -117,7 +118,7 @@ export function FloatingBar(props: FloatingBarProps) {
         barOpen && "bar-open",
       )}
     >
-      <div className="bar-pill flex h-[60px] w-fit items-center gap-2.5 rounded-full bg-tfl-blue pr-2.5 pl-2 text-white shadow-[0_10px_30px_rgba(0,25,168,.28),inset_0_-3px_0_#E32017] sm:gap-3.5">
+      <div className="bar-pill flex h-[60px] w-fit items-center gap-1.5 rounded-full bg-tfl-blue pr-2.5 pl-2 text-white shadow-[0_10px_30px_rgba(0,25,168,.28),inset_0_-3px_0_#E32017] sm:gap-3.5">
         <button
           type="button"
           className="bar-badge flex-none rounded-full"
@@ -133,7 +134,7 @@ export function FloatingBar(props: FloatingBarProps) {
           <Roundel className="size-11 flex-none drop-shadow-[0_2px_3px_rgba(0,0,0,.3)]" />
         </button>
         <div className="bar-reveal">
-          <div className="bar-rest flex items-center gap-2.5 sm:gap-3.5">
+          <div className="bar-rest flex items-center gap-1.5 sm:gap-3.5">
             <p className="hidden whitespace-nowrap text-[19px] lowercase leading-none tracking-[0.07em] sm:block">
               rl on rails
             </p>
@@ -142,7 +143,7 @@ export function FloatingBar(props: FloatingBarProps) {
               className="flex flex-none items-center gap-2 text-[12.5px]"
               title={`${totals.routeRead} of ${totals.routeTotal} stations on your route · ${totals.read} of ${totals.total} on the whole map`}
             >
-              <div className="hidden h-2 w-16 overflow-hidden rounded-full bg-white/20 sm:w-24 min-[400px]:block">
+              <div className="hidden h-2 w-16 overflow-hidden rounded-full bg-white/20 sm:w-24 min-[480px]:block">
                 <div
                   className={cx(
                     "progress-fill h-full rounded-full transition-[width] duration-700",
@@ -162,17 +163,21 @@ export function FloatingBar(props: FloatingBarProps) {
                 onJourney();
               }}
               title="Your journey"
-              className="flex h-9 flex-none items-center rounded-full bg-white/12 px-2.5 transition hover:bg-white/25"
+              className="flex h-9 flex-none items-center rounded-full bg-white/12 px-2 transition hover:bg-white/25 sm:px-2.5"
             >
-              <MiniHeatmap days={days} />
+              <CalendarDaysIcon className="size-5 min-[400px]:hidden" />
+              <span className="hidden min-[400px]:block">
+                <MiniHeatmap days={days} />
+              </span>
             </button>
+            <CurriculumHelpLink />
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
               aria-haspopup={compact ? "dialog" : undefined}
               className={cx(
-                "flex h-9 flex-none items-center gap-1.5 rounded-full px-3.5 text-[13px] transition",
+                "flex h-9 flex-none items-center gap-1.5 rounded-full px-2.5 text-[13px] transition sm:px-3.5",
                 open ? "bg-white text-[#111]" : "bg-white/12 hover:bg-white/25",
               )}
             >
