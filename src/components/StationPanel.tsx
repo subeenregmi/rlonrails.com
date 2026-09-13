@@ -2,6 +2,7 @@
 
 import { ArrowLeftIcon, ArrowRightIcon, ArrowTopRightOnSquareIcon, LockClosedIcon } from "@heroicons/react/16/solid";
 import { XMarkIcon } from "@heroicons/react/20/solid";
+import Link from "next/link";
 import { type Ref, useState } from "react";
 import {
   CURRICULUM,
@@ -12,6 +13,7 @@ import {
   type ResourceKind,
   type Station,
 } from "@/lib/curriculum";
+import { curriculumPath } from "@/lib/curriculum-routes";
 import { cx } from "@/lib/cx";
 import { KIND_ICON, KindBadge, sourceHeading, sourceKind, sourceWord } from "@/lib/kinds";
 import {
@@ -189,6 +191,13 @@ export function StationPanel(props: StationPanelProps) {
               </span>
             </div>
             <h2 className="mt-1.5 text-[20px] leading-tight">{station ? station.title : line.name}</h2>
+            <Link
+              href={`${curriculumPath(line)}${station ? `#${station.id}` : ""}`}
+              prefetch={false}
+              className="mt-2 inline-block text-xs underline underline-offset-2"
+            >
+              Read in the curriculum
+            </Link>
             <div className="mt-2.5 text-[12px] opacity-80">
               {station
                 ? `Stop ${index + 1} of ${line.stations.length} · ${station.name}`

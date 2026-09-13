@@ -2,6 +2,25 @@
 
 ![RL on Rails](docs/screenshot.png)
 
+## SEO and performance
+
+The public curriculum is available at `/curriculum`, with statically generated
+topic pages alongside the interactive map. See the [SEO audit](docs/seo-audit.md)
+for research, measurements, implementation details and release follow-up.
+
+Umami's Performance tab collects LCP, INP, CLS, FCP and TTFB after deployment.
+Use the p75 view and compare mobile and desktop separately. Local Lighthouse
+measurements use a production build:
+
+```sh
+npm run build
+npm run start
+npx --yes lighthouse@13.4.1 http://localhost:3000 --chrome-flags="--headless" --only-categories=performance,seo,accessibility,best-practices
+```
+
+The browser suite also checks crawlable content with JavaScript disabled,
+sitemap coverage, canonical URLs, social previews and indexing rules.
+
 ## Browser regression tests
 
 ```sh

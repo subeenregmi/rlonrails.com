@@ -53,6 +53,9 @@ test("the pin raises when the marker leaves the screen and flies the camera back
   expect(Math.abs(await aim(page))).toBeLessThan(1);
 
   await page.locator(pin).click();
+  // The flight starts on the next animation frame; an immediate "not moving"
+  // assertion can pass before it has begun. Wait for the visible arrival.
+  await expect.poll(async () => (await markerBox(page)).left).toBeGreaterThan(0);
   await expect(page.locator(".map-svg")).not.toHaveClass(MOVING, { timeout: 10_000 });
   const back = await markerBox(page);
   expect(back.left).toBeGreaterThan(0);

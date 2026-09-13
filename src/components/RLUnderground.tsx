@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { readDays } from "@/lib/activity";
 import {
@@ -38,12 +39,13 @@ import { progressStore, saveProgress } from "@/lib/storage";
 import { TFL_COLOURS } from "@/lib/tfl";
 import { Dialog, type DialogMessage } from "./Dialog";
 import { FloatingBar } from "./FloatingBar";
-import { JourneyModal } from "./Journey";
 import { JourneyStrip } from "./JourneyStrip";
 import { type Connection, type PanelView, StationPanel } from "./StationPanel";
 import { Toast, type ToastMessage } from "./Toast";
-import { TracksModal } from "./TracksModal";
 import { TubeMap, type TubeMapHandle } from "./TubeMap";
+
+const JourneyModal = dynamic(() => import("./Journey").then((module) => module.JourneyModal));
+const TracksModal = dynamic(() => import("./TracksModal").then((module) => module.TracksModal));
 
 export const trainCountFor = (readStations: number) =>
   readStations > 0 ? Math.min(22, 2 + Math.floor(readStations / 4)) : 0;
@@ -476,15 +478,17 @@ function Tracker({ initialProgress }: { initialProgress: Progress }) {
       />
       <Toast toast={toast} />
       <Dialog dialog={dialog} onClose={closeDialog} />
-      <JourneyModal open={journeyOpen} progress={progress} onClose={closeJourney} />
-      <TracksModal
-        open={tracksShown}
-        prompted={promptTracks}
-        tracks={progress.tracks}
-        onToggle={toggleTrack}
-        onAll={toggleAllTracks}
-        onDone={closeTracks}
-      />
+      {journeyOpen ? <JourneyModal open progress={progress} onClose={closeJourney} /> : null}
+      {tracksShown ? (
+        <TracksModal
+          open={tracksShown}
+          prompted={promptTracks}
+          tracks={progress.tracks}
+          onToggle={toggleTrack}
+          onAll={toggleAllTracks}
+          onDone={closeTracks}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,0 +1,269 @@
+{
+  "note": "Individual Lighthouse mobile lab runs, not real-user percentiles. Local-before and local-after are the initial production-build comparison; home-final repeats the final build. All times are milliseconds except unitless CLS.",
+  "runs": [
+    {
+      "run": "live-before",
+      "url": "https://rlonrails.com/",
+      "fetchTime": "2026-09-13T12:07:21.173Z",
+      "lighthouseVersion": "13.4.1",
+      "formFactor": "mobile",
+      "throttlingMethod": "simulate",
+      "throttling": {
+        "rttMs": 150,
+        "throughputKbps": 1638.4,
+        "requestLatencyMs": 562.5,
+        "downloadThroughputKbps": 1474.5600000000002,
+        "uploadThroughputKbps": 675,
+        "cpuSlowdownMultiplier": 4
+      },
+      "scores": {
+        "performance": 0.91,
+        "accessibility": 1,
+        "best-practices": 1,
+        "seo": 1
+      },
+      "metrics": {
+        "first-contentful-paint": {
+          "value": 1847.085,
+          "unit": "millisecond"
+        },
+        "largest-contentful-paint": {
+          "value": 3237.159,
+          "unit": "millisecond"
+        },
+        "total-blocking-time": {
+          "value": 67.5,
+          "unit": "millisecond"
+        },
+        "cumulative-layout-shift": {
+          "value": 0,
+          "unit": "unitless"
+        },
+        "speed-index": {
+          "value": 2940.020219586804,
+          "unit": "millisecond"
+        }
+      }
+    },
+    {
+      "run": "local-before",
+      "url": "http://127.0.0.1:3103/",
+      "fetchTime": "2026-09-13T12:09:26.634Z",
+      "lighthouseVersion": "13.4.1",
+      "formFactor": "mobile",
+      "throttlingMethod": "simulate",
+      "throttling": {
+        "rttMs": 150,
+        "throughputKbps": 1638.4,
+        "requestLatencyMs": 562.5,
+        "downloadThroughputKbps": 1474.5600000000002,
+        "uploadThroughputKbps": 675,
+        "cpuSlowdownMultiplier": 4
+      },
+      "scores": {
+        "performance": 0.89,
+        "accessibility": 1,
+        "best-practices": 1,
+        "seo": 1
+      },
+      "metrics": {
+        "first-contentful-paint": {
+          "value": 1683.7438999999997,
+          "unit": "millisecond"
+        },
+        "largest-contentful-paint": {
+          "value": 2946.78595,
+          "unit": "millisecond"
+        },
+        "total-blocking-time": {
+          "value": 259.5,
+          "unit": "millisecond"
+        },
+        "cumulative-layout-shift": {
+          "value": 0,
+          "unit": "unitless"
+        },
+        "speed-index": {
+          "value": 2442.7961246731993,
+          "unit": "millisecond"
+        }
+      }
+    },
+    {
+      "run": "local-after",
+      "url": "http://127.0.0.1:3104/",
+      "fetchTime": "2026-09-13T12:14:28.771Z",
+      "lighthouseVersion": "13.4.1",
+      "formFactor": "mobile",
+      "throttlingMethod": "simulate",
+      "throttling": {
+        "rttMs": 150,
+        "throughputKbps": 1638.4,
+        "requestLatencyMs": 562.5,
+        "downloadThroughputKbps": 1474.5600000000002,
+        "uploadThroughputKbps": 675,
+        "cpuSlowdownMultiplier": 4
+      },
+      "scores": {
+        "performance": 0.97,
+        "accessibility": 1,
+        "best-practices": 1,
+        "seo": 1
+      },
+      "metrics": {
+        "first-contentful-paint": {
+          "value": 760.2696000000001,
+          "unit": "millisecond"
+        },
+        "largest-contentful-paint": {
+          "value": 2609.2695999999996,
+          "unit": "millisecond"
+        },
+        "total-blocking-time": {
+          "value": 11.5,
+          "unit": "millisecond"
+        },
+        "cumulative-layout-shift": {
+          "value": 0,
+          "unit": "unitless"
+        },
+        "speed-index": {
+          "value": 2080.194275210736,
+          "unit": "millisecond"
+        }
+      }
+    },
+    {
+      "run": "curriculum",
+      "url": "http://127.0.0.1:3105/curriculum",
+      "fetchTime": "2026-09-13T12:20:16.831Z",
+      "lighthouseVersion": "13.4.1",
+      "formFactor": "mobile",
+      "throttlingMethod": "simulate",
+      "throttling": {
+        "rttMs": 150,
+        "throughputKbps": 1638.4,
+        "requestLatencyMs": 562.5,
+        "downloadThroughputKbps": 1474.5600000000002,
+        "uploadThroughputKbps": 675,
+        "cpuSlowdownMultiplier": 4
+      },
+      "scores": {
+        "performance": 0.99,
+        "accessibility": 1,
+        "best-practices": 1,
+        "seo": 1
+      },
+      "metrics": {
+        "first-contentful-paint": {
+          "value": 756.8217,
+          "unit": "millisecond"
+        },
+        "largest-contentful-paint": {
+          "value": 2156.8217,
+          "unit": "millisecond"
+        },
+        "total-blocking-time": {
+          "value": 0,
+          "unit": "millisecond"
+        },
+        "cumulative-layout-shift": {
+          "value": 0,
+          "unit": "unitless"
+        },
+        "speed-index": {
+          "value": 756.8217,
+          "unit": "millisecond"
+        }
+      }
+    },
+    {
+      "run": "topic",
+      "url": "http://127.0.0.1:3105/curriculum/rlhf-llm-reasoning",
+      "fetchTime": "2026-09-13T12:21:04.139Z",
+      "lighthouseVersion": "13.4.1",
+      "formFactor": "mobile",
+      "throttlingMethod": "simulate",
+      "throttling": {
+        "rttMs": 150,
+        "throughputKbps": 1638.4,
+        "requestLatencyMs": 562.5,
+        "downloadThroughputKbps": 1474.5600000000002,
+        "uploadThroughputKbps": 675,
+        "cpuSlowdownMultiplier": 4
+      },
+      "scores": {
+        "performance": 0.97,
+        "accessibility": 1,
+        "best-practices": 1,
+        "seo": 1
+      },
+      "metrics": {
+        "first-contentful-paint": {
+          "value": 1522.1261999999997,
+          "unit": "millisecond"
+        },
+        "largest-contentful-paint": {
+          "value": 2453.45115,
+          "unit": "millisecond"
+        },
+        "total-blocking-time": {
+          "value": 0,
+          "unit": "millisecond"
+        },
+        "cumulative-layout-shift": {
+          "value": 0,
+          "unit": "unitless"
+        },
+        "speed-index": {
+          "value": 1522.1261999999997,
+          "unit": "millisecond"
+        }
+      }
+    },
+    {
+      "run": "home-final",
+      "url": "http://127.0.0.1:3105/",
+      "fetchTime": "2026-09-13T12:21:14.320Z",
+      "lighthouseVersion": "13.4.1",
+      "formFactor": "mobile",
+      "throttlingMethod": "simulate",
+      "throttling": {
+        "rttMs": 150,
+        "throughputKbps": 1638.4,
+        "requestLatencyMs": 562.5,
+        "downloadThroughputKbps": 1474.5600000000002,
+        "uploadThroughputKbps": 675,
+        "cpuSlowdownMultiplier": 4
+      },
+      "scores": {
+        "performance": 0.97,
+        "accessibility": 1,
+        "best-practices": 1,
+        "seo": 1
+      },
+      "metrics": {
+        "first-contentful-paint": {
+          "value": 753.588,
+          "unit": "millisecond"
+        },
+        "largest-contentful-paint": {
+          "value": 2602.5879999999997,
+          "unit": "millisecond"
+        },
+        "total-blocking-time": {
+          "value": 11.5,
+          "unit": "millisecond"
+        },
+        "cumulative-layout-shift": {
+          "value": 0,
+          "unit": "unitless"
+        },
+        "speed-index": {
+          "value": 2075.8007346479358,
+          "unit": "millisecond"
+        }
+      }
+    }
+  ]
+}

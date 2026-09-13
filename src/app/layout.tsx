@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Hammersmith_One } from "next/font/google";
 import Script from "next/script";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
 const hammersmith = Hammersmith_One({
@@ -11,10 +12,15 @@ const hammersmith = Hammersmith_One({
 });
 
 export const metadata: Metadata = {
-  title: "RL on Rails",
-  description: "A London Underground style map of a reinforcement learning reading curriculum",
+  metadataBase: new URL(SITE_URL),
+  title: { default: SITE_NAME, template: `%s | ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
   applicationName: "RL on Rails",
-  appleWebApp: { capable: true, title: "RL on Rails", statusBarStyle: "black-translucent" },
+  appleWebApp: {
+    capable: true,
+    title: "RL on Rails",
+    statusBarStyle: "black-translucent",
+  },
   formatDetection: { telephone: false },
   // Next emits the standard `mobile-web-app-capable`; iOS only learned that one
   // in 17.4, and reads the manifest's `display` no further back than 15.4.
@@ -35,12 +41,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <Script
         src="https://umami.subeenregmi.com/script.js"
         data-website-id="d0c56b67-bb95-4bb3-ab32-4691377ead68"
+        data-performance="true"
         strategy="afterInteractive"
       />
       <Script
         src="https://umami.subeenregmi.com/recorder.js"
         data-website-id="d0c56b67-bb95-4bb3-ab32-4691377ead68"
-        strategy="afterInteractive"
+        strategy="lazyOnload"
       />
     </html>
   );
