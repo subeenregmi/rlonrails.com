@@ -134,9 +134,9 @@ export function FloatingBar(props: FloatingBarProps) {
         </button>
         <div className="bar-reveal">
           <div className="bar-rest flex items-center gap-2.5 sm:gap-3.5">
-            <h1 className="hidden whitespace-nowrap text-[19px] lowercase leading-none tracking-[0.07em] sm:block">
+            <p className="hidden whitespace-nowrap text-[19px] lowercase leading-none tracking-[0.07em] sm:block">
               rl on rails
-            </h1>
+            </p>
             <span className="hidden h-6 w-px bg-white/25 sm:block" />
             <div
               className="flex flex-none items-center gap-2 text-[12.5px]"
