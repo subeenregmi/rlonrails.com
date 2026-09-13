@@ -296,7 +296,8 @@ const Zones = memo(function ZonesSvg({ clipId }: { clipId: string }) {
         const bandHeight = inner ? inner.y - zone.y : zone.h;
         const fontSize = Math.min(WATERMARK_MAX, bandHeight * 0.62, (zone.w - 120) / label.length / WATERMARK_CHAR);
         const labelX = zone.x + zone.w / 2;
-        const labelY = inner ? (zone.y + inner.y) / 2 : zone.y + zone.h / 2;
+        // Lift the innermost watermark above the Foundations track and its station labels.
+        const labelY = inner ? (zone.y + inner.y) / 2 : zone.y + zone.h / 2 - fontSize * 1.25;
         return (
           <g key={zone.label}>
             {index > 0 && (
