@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { CSSProperties } from "react";
 import { StructuredData } from "@/components/StructuredData";
 import { CURRICULUM, findStation, rideOrder } from "@/lib/curriculum";
 import { curriculumPath, LINE_SLUGS } from "@/lib/curriculum-routes";
 import { pageMetadata, SITE_URL } from "@/lib/seo";
+import { TFL_COLOURS } from "@/lib/tfl";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -36,7 +38,7 @@ export default async function LinePage({ params }: Props) {
   const previous = ordered[index - 1];
   const next = ordered[index + 1];
   return (
-    <>
+    <div style={{ "--reading-accent": TFL_COLOURS[line.tfl] } as CSSProperties}>
       <nav aria-label="Breadcrumb" className="mb-5 text-ink-soft text-sm">
         <Link href="/" prefetch={false}>
           Home
@@ -47,9 +49,14 @@ export default async function LinePage({ params }: Props) {
         </Link>{" "}
         / <span aria-current="page">{line.name}</span>
       </nav>
-      <h1>{line.name}</h1>
-      <p className="text-ink-soft text-lg">{line.goal}</p>
-      <section aria-label="What you will learn">
+      <header className="reader-intro">
+        <span className="reader-label">
+          {line.phase} · {line.stations.length} stations
+        </span>
+        <h1>{line.name}</h1>
+        <p className="text-ink-soft text-lg">{line.goal}</p>
+      </header>
+      <section aria-label="What you will learn" className="reader-overview">
         <h2>What you will learn</h2>
         <p>{line.problem}</p>
         <p>{line.approach}</p>
@@ -65,11 +72,12 @@ export default async function LinePage({ params }: Props) {
           ))}
         </ol>
       </nav>
-      {line.stations.map((station) => (
-        <section key={station.id} id={station.id} className="scroll-mt-5 border-rule border-t pt-6">
-          <p className="text-ink-soft text-sm capitalize">
-            {station.tag} · {station.meta}
-          </p>
+      {line.stations.map((station, stationIndex) => (
+        <section key={station.id} id={station.id} className="reader-station scroll-mt-5">
+          <span className="reader-label">
+            Station {stationIndex + 1} · {station.tag}
+          </span>
+          <p className="text-ink-soft text-sm capitalize">{station.meta}</p>
           <h2>{station.title}</h2>
           <p>{station.idea}</p>
           <p>{station.fwd}</p>
@@ -96,7 +104,7 @@ export default async function LinePage({ params }: Props) {
             </div>
           ) : null}
           {station.resources.length > 0 ? (
-            <div>
+            <div className="reader-resources">
               <h3>Resources</h3>
               {station.pick ? <p>Choose {station.pick} of the suggested resources.</p> : null}
               <ul>
@@ -150,6 +158,6 @@ export default async function LinePage({ params }: Props) {
           ],
         }}
       />
-    </>
+    </div>
   );
 }

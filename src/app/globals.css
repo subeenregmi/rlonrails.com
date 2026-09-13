@@ -91,6 +91,7 @@ body::before {
 }
 
 .curriculum-reader {
+  --reading-accent: var(--color-tfl-blue);
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
@@ -135,6 +136,50 @@ body::before {
 .curriculum-reader a:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 4px;
+}
+.reader-intro {
+  padding: clamp(1.25rem, 4vw, 2rem);
+  border-top: 6px solid var(--reading-accent);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--reading-accent) 8%, var(--paper));
+}
+.reader-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--reading-accent) 30%, var(--rule));
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+.reader-label::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--reading-accent);
+}
+.reader-overview,
+.reader-station {
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--reading-accent);
+  border-radius: 0.75rem;
+  background: var(--surface);
+}
+.reader-overview h2,
+.reader-station h2 {
+  margin-top: 0;
+}
+.reader-resources {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--reading-accent) 6%, var(--paper));
 }
 
 .map-wrap {
