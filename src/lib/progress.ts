@@ -104,8 +104,8 @@ export function deliverables(station: Station, done: string[]): Deliverables {
 
 /**
  * Reading stations are suggested by their resources, exercise stations by their
- * deliverables. Neither can pull a station back down: what you have understood is
- * yours to declare, and the tick boxes only ever push it forwards.
+ * deliverables. A status the tick boxes set is one they can take back. A status
+ * you declared above them stays: what you have understood is yours to declare.
  */
 export function suggestStatus(
   station: Station,
@@ -114,9 +114,11 @@ export function suggestStatus(
   done: string[],
 ): Status {
   const current = statusOf(progress, station.id);
-  const suggested = isExercise(station)
-    ? statusFromDeliverables(station, done)
-    : statusFromResources(station, resources);
+  const fromTicks = (r: Record<string, boolean>, d: string[]) =>
+    isExercise(station) ? statusFromDeliverables(station, d) : statusFromResources(station, r);
+  const previous = fromTicks(progress.resources, stationProgress(progress, station.id).deliverables);
+  const suggested = fromTicks(resources, done);
+  if (current === previous) return suggested;
   return RANK[suggested] > RANK[current] ? suggested : current;
 }
 
